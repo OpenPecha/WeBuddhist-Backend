@@ -23,6 +23,7 @@ from ..users.users_repository import (
     save_phone_user,
     save_user,
 )
+from ..plans.authors.plan_authors_repository import find_author_by_email, get_author_by_phone
 from ..users.user_resolution import resolve_user_from_payload
 from .auth_repository import (
     create_access_token,
@@ -101,6 +102,15 @@ def create_user(create_user_request: CreateUserRequest, registration_source: Reg
 
     with SessionLocal() as db_session:
         if create_user_request.email and get_user_by_email_or_none(db=db_session, email=create_user_request.email):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ErrorConstants.USER_ALREADY_EXISTS)
+        # An Author account's email/phone is trusted to resolve a website
+        # token to its Author record (see validate_and_extract_author_details).
+        # Letting self-registration claim either would let anyone type in an
+        # Author's public contact info and be recognized as that Author, so
+        # registration is blocked on a collision instead of silently binding.
+        if create_user_request.email and find_author_by_email(db=db_session, email=create_user_request.email):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ErrorConstants.USER_ALREADY_EXISTS)
+        if create_user_request.phone_number and get_author_by_phone(db=db_session, phone_number=create_user_request.phone_number):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ErrorConstants.USER_ALREADY_EXISTS)
         saved_user = save_user(db=db_session, user=new_user)
         return saved_user

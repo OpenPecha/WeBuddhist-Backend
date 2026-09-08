@@ -43,11 +43,11 @@ class TestValidateAndExtractAuthorDetails:
     @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_email')
     @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
     def test_validate_and_extract_author_details_success(
-        self, 
-        mock_validate_token, 
-        mock_find_author_by_email, 
-        mock_session_local
-    ):
+        self,
+        mock_validate_token: MagicMock,
+        mock_find_author_by_email: MagicMock,
+        mock_session_local: MagicMock
+    ) -> None:
         """Test successful token validation and author extraction."""
         # Arrange
         token = "valid_token"
@@ -72,11 +72,11 @@ class TestValidateAndExtractAuthorDetails:
     @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
     def test_validate_and_extract_author_details_website_token_falls_back_to_email(
         self,
-        mock_validate_token,
-        mock_find_author_by_id,
-        mock_find_author_by_email,
-        mock_session_local
-    ):
+        mock_validate_token: MagicMock,
+        mock_find_author_by_id: MagicMock,
+        mock_find_author_by_email: MagicMock,
+        mock_session_local: MagicMock
+    ) -> None:
         """A WeBuddhist website (User) token has a UUID "sub", but it's the
         User's id, not an Author's - Users and Authors are independently
         generated id spaces. The id lookup must miss, and the function must
@@ -109,12 +109,12 @@ class TestValidateAndExtractAuthorDetails:
     @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
     def test_validate_and_extract_author_details_website_token_falls_back_to_phone(
         self,
-        mock_validate_token,
-        mock_find_author_by_id,
-        mock_find_author_by_email,
-        mock_get_author_by_phone,
-        mock_session_local
-    ):
+        mock_validate_token: MagicMock,
+        mock_find_author_by_id: MagicMock,
+        mock_find_author_by_email: MagicMock,
+        mock_get_author_by_phone: MagicMock,
+        mock_session_local: MagicMock
+    ) -> None:
         """Same as the email case, but via the token's "phone_number" claim,
         for a website user with no email on file.
         """
@@ -143,11 +143,11 @@ class TestValidateAndExtractAuthorDetails:
     @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
     def test_validate_and_extract_author_details_website_token_no_matching_author(
         self,
-        mock_validate_token,
-        mock_find_author_by_id,
-        mock_find_author_by_email,
-        mock_session_local
-    ):
+        mock_validate_token: MagicMock,
+        mock_find_author_by_id: MagicMock,
+        mock_find_author_by_email: MagicMock,
+        mock_session_local: MagicMock
+    ) -> None:
         """A website token whose id and contact claims match no Author at
         all → 401, with no fabricated Author.
         """
