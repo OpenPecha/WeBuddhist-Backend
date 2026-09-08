@@ -16,6 +16,7 @@ from pecha_api.auth.auth_repository import validate_token
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details, validate_cms_author_details
 from pecha_api.plans.shared.permissions import (
     _STATUS_CHANGE_ROLES,
+    can_create_group_content,
     get_member_role,
     is_reviewer,
     is_super_admin,
@@ -2590,6 +2591,7 @@ def _no_cms_access_dto(group_id: UUID, author_id: Optional[UUID] = None) -> Grou
     return GroupPermissionDTO(
         group_id=group_id,
         has_permission=False,
+        can_create_content=False,
         role=None,
         is_super_admin=False,
         author_id=author_id,
@@ -2617,6 +2619,10 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
        super-admin bypass. It is a coarse flag, not per-operation: some
        actions remain OWNER-only. Callers that need that distinction
        should check role == OWNER.
+    6. can_create_content mirrors require_can_create_content's role set
+       (OWNER/ADMIN/AUTHOR) - it's what actually gates posts, events,
+       plans, etc. An AUTHOR gets has_permission=False (they can't manage
+       the group) but can_create_content=True (they can author content).
     """
     try:
         payload = validate_token(token)
@@ -2652,6 +2658,7 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
         return GroupPermissionDTO(
             group_id=group_id,
             has_permission=author_is_super_admin or role in _GROUP_SETTINGS_ROLES,
+            can_create_content=author_is_super_admin or can_create_group_content(role),
             role=role,
             is_super_admin=author_is_super_admin,
             author_id=author.id,

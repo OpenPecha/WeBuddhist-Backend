@@ -4108,6 +4108,7 @@ def test_get_group_permission_group_member():
 
     assert result.group_id == group.id
     assert result.has_permission is True
+    assert result.can_create_content is True
     assert result.role == AuthorGroupMemberRole.ADMIN
     assert result.is_super_admin is False
     assert result.author_id == author.id
@@ -4164,13 +4165,14 @@ def test_get_group_permission_author_role_no_management():
 
     assert result.group_id == group.id
     assert result.has_permission is False
+    assert result.can_create_content is True
     assert result.role == AuthorGroupMemberRole.AUTHOR
     assert result.is_super_admin is False
     assert result.author_id == author.id
 
 
 def test_get_group_permission_viewer_role_no_management():
-    """VIEWER role can only read → has_permission: false"""
+    """VIEWER role can only read → has_permission: false, can_create_content: false"""
     author = _make_author(email="viewer@example.org")
     group = _make_group()
 
@@ -4192,6 +4194,7 @@ def test_get_group_permission_viewer_role_no_management():
 
     assert result.group_id == group.id
     assert result.has_permission is False
+    assert result.can_create_content is False
     assert result.role == AuthorGroupMemberRole.VIEWER
     assert result.is_super_admin is False
     assert result.author_id == author.id
