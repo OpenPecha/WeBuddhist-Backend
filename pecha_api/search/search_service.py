@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from fastapi import HTTPException
 from starlette import status
@@ -18,6 +18,7 @@ from .search_response_models import (
 )
 from openpecha_api.text.openpecha_text_service import fetch_text_by_id, search_by_content
 from openpecha_api.segments.openpecha_segment_service import fetch_segment_details
+from pecha_api.texts.texts_openpecha_api import fetch_edition_text_id
 from pecha_api.texts.texts_openpecha_service import _extract_title
 
 logger = logging.getLogger(__name__)
@@ -184,6 +185,46 @@ def _sheet_search(query: str, skip: int, limit: int) -> SearchResponse:
         limit=limit,
         total=0
     )
+
+
+async def _edition_is_live(edition_id: str) -> bool:
+    """Whether OpenPecha still serves this edition.
+
+    Fails open: only a definite 404 rules an edition out, so an upstream blip
+    never silently empties a page of results.
+    """
+    try:
+        await fetch_edition_text_id(edition_id=edition_id)
+        return True
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_404_NOT_FOUND:
+            return False
+        logger.warning("Could not verify edition %s upstream; keeping it", edition_id)
+        return True
+    except Exception:
+        logger.warning("Could not verify edition %s upstream; keeping it", edition_id)
+        return True
+
+
+async def filter_live_edition_ids(edition_ids: List[str]) -> Set[str]:
+    """Keep only the editions OpenPecha can still open.
+
+    The content-search index outlives deleted texts, so hits can point at
+    editions the graph no longer has. Those render fine in a result list but
+    404 on POST /texts/{edition_id}/details as soon as the reader clicks one,
+    so they are dropped before the response is built.
+    """
+    unique_edition_ids = list(dict.fromkeys(edition_id for edition_id in edition_ids if edition_id))
+    if not unique_edition_ids:
+        return set()
+
+    results = await asyncio.gather(*[_edition_is_live(edition_id) for edition_id in unique_edition_ids])
+    live_edition_ids = {edition_id for edition_id, is_live in zip(unique_edition_ids, results) if is_live}
+
+    dropped = len(unique_edition_ids) - len(live_edition_ids)
+    if dropped:
+        logger.info("Dropped %d search result(s) pointing at editions missing from OpenPecha", dropped)
+    return live_edition_ids
 
 
 def build_placeholder_text_index(text_id: str) -> TextIndex:

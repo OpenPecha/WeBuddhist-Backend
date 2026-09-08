@@ -14,6 +14,7 @@ from .search_service import (
     build_placeholder_text_index,
     create_empty_search_response,
     fetch_text_info,
+    filter_live_edition_ids,
     flatten_content_search_matches,
 )
 
@@ -52,7 +53,14 @@ async def _build_sources_from_content_search_matches(
     if not edition_ids:
         return []
 
-    unique_text_ids = list(dict.fromkeys(edition_to_text_id.values()))
+    # The content-search index still carries editions the graph has dropped;
+    # they would 404 on /texts/{edition_id}/details the moment they're clicked.
+    live_edition_ids = await filter_live_edition_ids(edition_ids)
+    edition_ids = [edition_id for edition_id in edition_ids if edition_id in live_edition_ids]
+    if not edition_ids:
+        return []
+
+    unique_text_ids = list(dict.fromkeys(edition_to_text_id[edition_id] for edition_id in edition_ids))
     text_info_map = await fetch_text_info(unique_text_ids)
     sources: List[MultilingualSourceResult] = []
 
@@ -85,7 +93,11 @@ async def get_multilingual_search_results(
     limit: int = 10,
 ) -> MultilingualSearchResponse:
     try:
-        external_limit = min(limit * 5, MAX_EXTERNAL_SEARCH_LIMIT)
+        # Ask upstream for its maximum window rather than a multiple of `limit`.
+        # Roughly half the content-search index points at deleted editions, and
+        # those orphans are ranked in among the live hits, so a narrow window can
+        # come back entirely unopenable and leave the reader with nothing.
+        external_limit = MAX_EXTERNAL_SEARCH_LIMIT
 
         # OpenPecha's content search scopes by edition, so the incoming text_id
         # is sent as edition_id.
@@ -121,7 +133,9 @@ async def get_multilingual_search_results(
             sources=paginated_sources,
             skip=skip,
             limit=limit,
-            total=len(matches),
+            # Counts the openable matches only, so `total` agrees with what
+            # paging through the sources actually yields.
+            total=sum(len(source.segment_matches) for source in sources),
         )
 
     except Exception:
