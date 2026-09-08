@@ -14,7 +14,8 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.authors.plan_authors_model import Author, AuthorSocialMediaAccount
 from pecha_api.plans.authors.plan_authors_repository import get_author_by_id, get_all_authors, \
-    update_author, find_author_by_id
+    update_author, find_author_by_id, find_author_by_user_id
+from pecha_api.users.users_repository import get_user_by_id
 import jose
 
 from pecha_api.plans.authors.plan_authors_response_models import AuthorInfoResponse, SocialMediaProfile, \
@@ -215,6 +216,17 @@ def validate_and_extract_author_details(token: str) -> Author:
                     detail=ErrorConstants.TOKEN_ERROR_MESSAGE,
                 )
             author = find_author_by_id(db=db_session, author_id=author_id)
+            if author is None:
+                # Not a CMS Author token. If it's a website User token,
+                # resolve via the persisted, explicitly-verified link
+                # (Author.user_id) rather than the token's own email/phone
+                # claims - those aren't proof of identity (see auth_service
+                # .create_user's Author email/phone collision check for why).
+                try:
+                    get_user_by_id(db=db_session, user_id=author_id)
+                    author = find_author_by_user_id(db=db_session, user_id=author_id)
+                except HTTPException:
+                    author = None
             if author is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,

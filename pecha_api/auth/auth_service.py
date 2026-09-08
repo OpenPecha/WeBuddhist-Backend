@@ -16,14 +16,13 @@ from ..users.users_models import Users, PasswordReset
 from ..db.database import SessionLocal
 from ..users.users_repository import (
     get_user_by_email,
-    get_user_by_email_or_none,
     get_user_by_phone,
     get_user_by_username,
     link_user_phone,
     save_phone_user,
     save_user,
 )
-from ..plans.authors.plan_authors_repository import find_author_by_email, get_author_by_phone
+from ..plans.authors.author_user_link_service import link_or_create_author_for_user
 from ..users.user_resolution import resolve_user_from_payload
 from .auth_repository import (
     create_access_token,
@@ -36,7 +35,6 @@ from .auth_repository import (
 )
 from .password_reset_repository import save_password_reset, get_password_reset_by_token
 from .auth_enums import RegistrationSource
-from ..error_contants import ErrorConstants
 from fastapi import HTTPException
 from starlette import status
 from jinja2 import Template
@@ -83,21 +81,6 @@ def _apply_email_registration(create_user_request: CreateUserRequest, new_user: 
     new_user.password = get_hashed_password(create_user_request.password)
 
 
-def _raise_if_contact_taken(db_session, create_user_request: CreateUserRequest) -> None:
-    # Keep User and Author contact records distinct so invitation
-    # lookup and any future explicit account-linking stay unambiguous.
-    email_taken = create_user_request.email and (
-        get_user_by_email_or_none(db=db_session, email=create_user_request.email)
-        or find_author_by_email(db=db_session, email=create_user_request.email)
-    )
-    phone_taken = (
-        create_user_request.phone_number
-        and get_author_by_phone(db=db_session, phone_number=create_user_request.phone_number)
-    )
-    if email_taken or phone_taken:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ErrorConstants.USER_ALREADY_EXISTS)
-
-
 def create_user(create_user_request: CreateUserRequest, registration_source: RegistrationSource) -> Users:
     logging.debug(f"RegistrationSource: {registration_source.value}")
     logging.debug(f"Creating user with first name: {create_user_request.firstname}")
@@ -121,8 +104,9 @@ def create_user(create_user_request: CreateUserRequest, registration_source: Reg
     new_user.registration_source = registration_source.value
 
     with SessionLocal() as db_session:
-        _raise_if_contact_taken(db_session, create_user_request)
-        return save_user(db=db_session, user=new_user)
+        saved_user = save_user(db=db_session, user=new_user)
+        link_or_create_author_for_user(db=db_session, user=saved_user)
+        return saved_user
 
 
 def _validate_password(password: str):
@@ -249,6 +233,7 @@ def exchange_phone_token(request: PhoneExchangeRequest) -> PhoneExchangeResponse
             is_admin=False,
         )
         user = save_phone_user(db=db, user=user)
+        link_or_create_author_for_user(db=db, user=user)
         return _phone_exchange_response(user, sms_identity.phone_number)
 
 

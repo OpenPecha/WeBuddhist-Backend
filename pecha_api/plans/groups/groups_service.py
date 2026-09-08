@@ -10,7 +10,8 @@ from starlette import status
 from pecha_api.config import get, get_int
 from pecha_api.db.database import SessionLocal
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
-from pecha_api.plans.authors.plan_authors_repository import find_author_by_email, find_author_by_id
+from pecha_api.plans.authors.plan_authors_repository import find_author_by_email, find_author_by_id, \
+    find_author_by_user_id
 from pecha_api.auth.auth_repository import validate_token
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details, validate_cms_author_details
 from pecha_api.plans.shared.permissions import (
@@ -2561,9 +2562,12 @@ def _website_user_from_token(token: str) -> Optional[Users]:
 def _resolve_permission_caller(db: Session, subject_uuid: Optional[UUID], token: str):
     """Resolve (author, user) from a stable token subject.
 
-    Trust an Author id only when no live User occupies that id.
-    A colliding User token must not inherit that Author's group
-    membership; contact claims are not used to disambiguate.
+    Trust an Author id only when no live User occupies that id - a
+    colliding User token must not inherit that Author's group membership
+    just because the ids happen to match. A website User is instead
+    matched to an Author through the persisted, explicitly-established
+    Author.user_id link (see plan_authors_repository.link_author_to_user);
+    contact claims (email/phone) are never used to disambiguate.
     """
     candidate_author = None
     live_user = None
@@ -2574,8 +2578,12 @@ def _resolve_permission_caller(db: Session, subject_uuid: Optional[UUID], token:
     if candidate_author is not None and live_user is None:
         return candidate_author, None
     if live_user is not None:
-        return None, live_user
-    return None, _website_user_from_token(token)
+        return find_author_by_user_id(db=db, user_id=live_user.id), live_user
+
+    user = _website_user_from_token(token)
+    if user is not None:
+        return find_author_by_user_id(db=db, user_id=user.id), user
+    return None, None
 
 
 def _no_cms_access_dto(group_id: UUID, author_id: Optional[UUID] = None) -> GroupPermissionDTO:
@@ -2598,11 +2606,12 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
     2. A UUID subject that matches an Author and no live User is a CMS
        Author token. Check AuthorGroupMember for that Author id.
     3. A UUID subject that matches a User - including when an Author row
-       happens to share the same id - is a website login. There is no
-       persisted User→Author link, so this returns no CMS access rather
-       than inferring one from email or phone.
+       happens to share the same id - is a website login. It resolves to
+       an Author only via the persisted Author.user_id link, never by
+       inferring one from the token's own email or phone claims.
     4. A non-UUID subject (Auth0) is resolved as a website User when
-       possible; it never becomes an Author through contact claims.
+       possible, then the same Author.user_id link is checked; it never
+       becomes an Author through contact claims.
     5. has_permission is the OWNER/ADMIN manage-group set used elsewhere
        in this module (see _GROUP_SETTINGS_ROLES), with the same
        super-admin bypass. It is a coarse flag, not per-operation: some
