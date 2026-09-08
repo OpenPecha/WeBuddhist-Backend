@@ -70,8 +70,9 @@ def _get_mock_text_payload_():
 
 
 @pytest.mark.asyncio
-async def test_text_id_is_sent_upstream_as_edition_id():
-    """The endpoint keeps the `text_id` name, but OpenPecha filters by edition."""
+async def test_text_id_is_forwarded_upstream_as_text_id():
+    """`text_id` and `edition_id` are distinct upstream ids: a text_id sent in the
+    edition_id slot matches nothing, which is what emptied "search in this text"."""
     with patch(
         "pecha_api.search.search_openpecha_service.search_by_content",
         new_callable=AsyncMock,
@@ -82,16 +83,37 @@ async def test_text_id_is_sent_upstream_as_edition_id():
         return_value=_get_mock_text_payload_(),
     ), _mock_edition_lookup_({EDITION_ID}):
         await get_multilingual_search_results(
-            query="buddha", search_type="exact", text_id=EDITION_ID, skip=0, limit=10
+            query="buddha", search_type="exact", text_id=TEXT_ID, skip=0, limit=10
+        )
+
+    kwargs = mock_search_by_content.await_args.kwargs
+    assert kwargs["text_id"] == TEXT_ID
+    assert kwargs["edition_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_edition_id_is_forwarded_upstream_as_edition_id():
+    """Callers holding an edition id can still narrow the search to that edition."""
+    with patch(
+        "pecha_api.search.search_openpecha_service.search_by_content",
+        new_callable=AsyncMock,
+        return_value=_get_mock_content_search_response_(),
+    ) as mock_search_by_content, patch(
+        "pecha_api.search.search_service.fetch_text_by_id",
+        new_callable=AsyncMock,
+        return_value=_get_mock_text_payload_(),
+    ), _mock_edition_lookup_({EDITION_ID}):
+        await get_multilingual_search_results(
+            query="buddha", search_type="exact", edition_id=EDITION_ID, skip=0, limit=10
         )
 
     kwargs = mock_search_by_content.await_args.kwargs
     assert kwargs["edition_id"] == EDITION_ID
-    assert "text_id" not in kwargs
+    assert kwargs["text_id"] is None
 
 
 @pytest.mark.asyncio
-async def test_no_edition_filter_is_sent_when_text_id_is_omitted():
+async def test_no_scope_filter_is_sent_when_no_id_is_given():
     with patch(
         "pecha_api.search.search_openpecha_service.search_by_content",
         new_callable=AsyncMock,
@@ -99,7 +121,9 @@ async def test_no_edition_filter_is_sent_when_text_id_is_omitted():
     ) as mock_search_by_content:
         response = await get_multilingual_search_results(query="buddha", skip=0, limit=10)
 
-    assert mock_search_by_content.await_args.kwargs["edition_id"] is None
+    kwargs = mock_search_by_content.await_args.kwargs
+    assert kwargs["text_id"] is None
+    assert kwargs["edition_id"] is None
     assert response.sources == []
     assert response.total == 0
 

@@ -89,6 +89,7 @@ async def get_multilingual_search_results(
     query: str,
     search_type: str = "similar",
     text_id: Optional[str] = None,
+    edition_id: Optional[str] = None,
     skip: int = 0,
     limit: int = 10,
 ) -> MultilingualSearchResponse:
@@ -99,13 +100,16 @@ async def get_multilingual_search_results(
         # come back entirely unopenable and leave the reader with nothing.
         external_limit = MAX_EXTERNAL_SEARCH_LIMIT
 
-        # OpenPecha's content search scopes by edition, so the incoming text_id
-        # is sent as edition_id.
+        # Upstream scopes by whichever id it is given: `text_id` covers every
+        # edition of a work, `edition_id` narrows to one. They are distinct ids,
+        # so a text_id passed as edition_id matches nothing and the caller gets
+        # an empty page for a word that is plainly in the text.
         external_data = await search_by_content(
             query=query,
             search_type=search_type,
             limit=external_limit,
-            edition_id=text_id,
+            text_id=text_id,
+            edition_id=edition_id,
         )
 
         if not isinstance(external_data, list):
