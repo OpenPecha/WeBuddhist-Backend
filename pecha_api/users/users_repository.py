@@ -53,6 +53,10 @@ def get_user_by_phone(db: Session, phone_number: str) -> Optional[Users]:
     return db.query(Users).filter(Users.phone_number == phone_number).first()
 
 
+def get_user_by_email_or_none(db: Session, email: str) -> Optional[Users]:
+    return db.query(Users).filter(Users.email == email).first()
+
+
 def save_phone_user(db: Session, user: Users) -> Users:
     try:
         db.add(user)

@@ -21,6 +21,8 @@ class MockGroup:
     def __init__(self, id=None, is_public=True):
         self.id = id or uuid4()
         self.is_public = is_public
+        # Published by default; these cases test is_public on live groups.
+        self.status = "PUBLISHED"
 
 
 class MockGroupPostMedia:
@@ -132,7 +134,8 @@ class TestListGroupPostsService:
     @patch('pecha_api.group_posts.service._generate_presigned_url')
     @patch('pecha_api.group_posts.service.get_groups_by_ids', return_value=[])
     @patch('pecha_api.group_posts.service.get_group_posts')
-    @patch('pecha_api.group_posts.service.get_group_by_id')
+    # Patched in service_utils, where the gate looks the group up.
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @patch('pecha_api.group_posts.service.SessionLocal')
     def test_list_success_only_published(
         self,
@@ -190,7 +193,7 @@ class TestListGroupPostsService:
         assert kwargs["status"] == GroupPostStatus.PUBLISHED
         assert kwargs["group_id"] == group_id
 
-    @patch('pecha_api.group_posts.service.get_group_by_id')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @patch('pecha_api.group_posts.service.SessionLocal')
     def test_list_group_not_found(self, mock_session, mock_get_group):
         mock_session.return_value.__enter__.return_value = MagicMock()
@@ -201,9 +204,9 @@ class TestListGroupPostsService:
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
-    @patch('pecha_api.group_posts.service.get_group_by_id')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @patch('pecha_api.group_posts.service.SessionLocal')
-    def test_list_private_group_returns_404(self, mock_session, mock_get_group):
+    def test_list_private_group_returns_404_for_non_joiner(self, mock_session, mock_get_group):
         mock_session.return_value.__enter__.return_value = MagicMock()
         mock_get_group.return_value = MockGroup(is_public=False)
 
@@ -211,6 +214,23 @@ class TestListGroupPostsService:
             list_group_posts_service(group_id=uuid4())
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @patch('pecha_api.group_posts.service.get_group_posts')
+    @patch('pecha_api.group_posts.service_utils.is_user_joined_group')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
+    @patch('pecha_api.group_posts.service.SessionLocal')
+    def test_list_private_group_allows_joiner(
+        self, mock_session, mock_get_group, mock_joined, mock_get_posts
+    ):
+        """An approved joiner sees a private group's posts."""
+        mock_session.return_value.__enter__.return_value = MagicMock()
+        mock_get_group.return_value = MockGroup(is_public=False)
+        mock_joined.return_value = True
+        mock_get_posts.return_value = ([], 0)
+
+        result = list_group_posts_service(group_id=uuid4(), user_id=uuid4())
+
+        assert result.total == 0
 
     @patch('pecha_api.group_posts.service.get_posts_for_group_ids')
     @patch('pecha_api.group_posts.service.resolve_public_group_scope')
@@ -272,7 +292,8 @@ class TestListGroupPostsService:
     @patch('pecha_api.group_posts.like_repository.get_like_counts_by_post_ids')
     @patch('pecha_api.plans.authors.plan_authors_repository.get_authors_by_emails')
     @patch('pecha_api.group_posts.service.get_group_posts')
-    @patch('pecha_api.group_posts.service.get_group_by_id')
+    # The gate lives in service_utils, so the lookup must be patched there.
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @patch('pecha_api.group_posts.service.SessionLocal')
     def test_list_empty(
         self,
@@ -306,7 +327,7 @@ class TestGetGroupPostDetailService:
     @patch('pecha_api.group_posts.service._generate_presigned_url')
     @patch('pecha_api.group_posts.service.get_groups_by_ids', return_value=[])
     @patch('pecha_api.group_posts.service.get_post_by_id_only')
-    @patch('pecha_api.group_posts.service._validate_group_is_public')
+    @patch('pecha_api.group_posts.service._validate_group_access')
     @patch('pecha_api.group_posts.service.SessionLocal')
     def test_detail_success(
         self,
@@ -353,3 +374,43 @@ class TestGetGroupPostDetailService:
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
         _, kwargs = mock_get_post.call_args
         assert kwargs["status"] == GroupPostStatus.PUBLISHED
+
+
+class TestGroupContentAccessRespectsPublicationStatus:
+    """Content is gated on status too, so a hidden group's posts stay
+    unreachable even by direct group id."""
+
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
+    def test_validate_group_content_access_rejects_draft_group(self, mock_get_group):
+        from pecha_api.group_posts.service_utils import validate_group_content_access
+
+        group = MockGroup(is_public=True)
+        group.status = "DRAFT"
+        mock_get_group.return_value = group
+
+        with pytest.raises(HTTPException) as exc:
+            validate_group_content_access(db=MagicMock(), group_id=group.id)
+
+        assert exc.value.status_code == 404
+
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
+    def test_validate_group_is_public_rejects_unpublished_group(self, mock_get_group):
+        from pecha_api.group_posts.service_utils import validate_group_is_public
+
+        group = MockGroup(is_public=True)
+        group.status = "UNPUBLISHED"
+        mock_get_group.return_value = group
+
+        with pytest.raises(HTTPException) as exc:
+            validate_group_is_public(db=MagicMock(), group_id=group.id)
+
+        assert exc.value.status_code == 404
+
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
+    def test_published_public_group_still_allowed(self, mock_get_group):
+        """Regression guard: the gate must not disturb the existing flow."""
+        from pecha_api.group_posts.service_utils import validate_group_content_access
+
+        mock_get_group.return_value = MockGroup(is_public=True)
+
+        validate_group_content_access(db=MagicMock(), group_id=uuid4())

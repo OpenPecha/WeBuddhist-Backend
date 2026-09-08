@@ -4,10 +4,9 @@ from contextlib import asynccontextmanager
 from beanie import init_beanie
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.errors import ConfigurationError
 
-from ..topics.topics_models import Topic
 from ..collections.collections_models import Collection
-from ..terms.terms_models import Term
 from ..texts.texts_models import Text
 from ..texts.segments.segments_models import Segment
 from ..texts.texts_models import TableOfContent
@@ -18,44 +17,32 @@ from ..scheduler import setup_scheduler, shutdown_scheduler
 from ..group_posts.comment_websocket import init_broadcaster
 from ..chat.chat_websocket import init_broadcaster as init_chat_broadcaster
 
+logger = logging.getLogger(__name__)
+
 mongodb_client = None
 mongodb = None
+
+BEANIE_DOCUMENT_MODELS = [
+    Collection,
+    Text,
+    Segment,
+    TableOfContent,
+    Group,
+]
+
+
+def _is_mongo_connection_string_configured(connection_string: str) -> bool:
+    return bool(connection_string and connection_string.strip())
 
 
 @asynccontextmanager
 async def lifespan(api: FastAPI):
     global mongodb_client, mongodb
-    # Initialize the MongoDB client and database
-    mongodb_client = AsyncIOMotorClient(get("MONGO_CONNECTION_STRING"))
-    mongodb = mongodb_client[get("MONGO_DATABASE_NAME")]
-    api.mongodb = mongodb  # Attach the database instance to the FastAPI app
+    api.mongodb = None
 
     try:
-        # Initialize collections and indexes if necessary
-        try:
-            await init_beanie(
-                database=mongodb,
-                document_models=[
-                    Collection,
-                    Term,
-                    Topic,
-                    Text,
-                    Segment,
-                    TableOfContent,
-                    TextAudio,
-                    TextAudioOtr,
-                    Group,
-                ],
-                allow_index_dropping=True,
-            )
-            logging.info("Beanie initialized with the 'terms' collection.")
-        except Exception as e:
-            logging.error(f"Error during collection initialization: {e}")
-            raise
-
-        setup_scheduler()
-
-        # Initialize the comment WebSocket broadcaster (connects to Redis)
+        # Initialize the comment/chat WebSocket broadcasters (connect to Redis).
+        # Independent of MongoDB so chat keeps working even if Mongo is unused/down.
         try:
             redis_url = get("REDIS_URL")
             await init_broadcaster(redis_url=redis_url)
@@ -90,6 +77,48 @@ async def lifespan(api: FastAPI):
             )
             logging.error(error_msg)
             raise RuntimeError(error_msg) from e
+
+        connection_string = get("MONGO_CONNECTION_STRING")
+        if not _is_mongo_connection_string_configured(connection_string):
+            logger.warning(
+                "MONGO_CONNECTION_STRING is not set; MongoDB and Beanie will not be initialized."
+            )
+            yield
+            return
+
+        try:
+            mongodb_client = AsyncIOMotorClient(connection_string)
+            mongodb = mongodb_client[get("MONGO_DATABASE_NAME")]
+            api.mongodb = mongodb
+        except ConfigurationError:
+            logger.exception(
+                "Invalid MONGO_CONNECTION_STRING; MongoDB will not be initialized."
+            )
+            yield
+            return
+        except Exception:
+            logger.exception(
+                "Failed to create MongoDB client; MongoDB will not be initialized."
+            )
+            yield
+            return
+
+        await init_beanie(
+            database=mongodb,
+            document_models=[
+                Collection,
+                Text,
+                Segment,
+                TableOfContent,
+                TextAudio,
+                TextAudioOtr,
+                Group,
+            ],
+            allow_index_dropping=True,
+        )
+        logger.info("Beanie initialized with MongoDB document models.")
+
+        setup_scheduler()
 
         yield
     finally:

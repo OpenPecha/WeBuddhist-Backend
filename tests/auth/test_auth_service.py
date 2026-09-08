@@ -344,11 +344,13 @@ def test_create_user_with_email_success():
 
     with patch('pecha_api.auth.auth_service.save_user') as mock_save_user, \
             patch('pecha_api.auth.auth_service.get_hashed_password') as mock_get_hashed_password, \
-            patch('pecha_api.auth.auth_service.generate_and_validate_username') as mock_generate_and_validate_username:
+            patch('pecha_api.auth.auth_service.generate_and_validate_username') as mock_generate_and_validate_username, \
+            patch('pecha_api.auth.auth_service.get_user_by_email_or_none') as mock_get_user_by_email_or_none:
         mock_user = MagicMock()
         mock_save_user.return_value = mock_user
         mock_get_hashed_password.return_value = "hashed_password123"
         mock_generate_and_validate_username.return_value = 'john_doe.0003'
+        mock_get_user_by_email_or_none.return_value = None
 
         response = create_user(create_user_request, registration_source)
 
@@ -367,10 +369,12 @@ def test_create_user_with_google_success():
     registration_source = RegistrationSource.GOOGLE
 
     with patch('pecha_api.auth.auth_service.save_user') as mock_save_user, \
-            patch('pecha_api.auth.auth_service.generate_and_validate_username') as mock_generate_and_validate_username:
+            patch('pecha_api.auth.auth_service.generate_and_validate_username') as mock_generate_and_validate_username, \
+            patch('pecha_api.auth.auth_service.get_user_by_email_or_none') as mock_get_user_by_email_or_none:
         mock_user = MagicMock()
         mock_save_user.return_value = mock_user
         mock_generate_and_validate_username.return_value = 'john_doe.0003'
+        mock_get_user_by_email_or_none.return_value = None
 
         response = create_user(create_user_request, registration_source)
 
@@ -388,10 +392,12 @@ def test_create_user_with_facebook_success():
     registration_source = RegistrationSource.FACEBOOK
 
     with patch('pecha_api.auth.auth_service.save_user') as mock_save_user, \
-            patch('pecha_api.auth.auth_service.generate_and_validate_username') as mock_generate_and_validate_username:
+            patch('pecha_api.auth.auth_service.generate_and_validate_username') as mock_generate_and_validate_username, \
+            patch('pecha_api.auth.auth_service.get_user_by_email_or_none') as mock_get_user_by_email_or_none:
         mock_user = MagicMock()
         mock_save_user.return_value = mock_user
         mock_generate_and_validate_username.return_value = 'john_doe.0003'
+        mock_get_user_by_email_or_none.return_value = None
 
         response = create_user(create_user_request, registration_source)
 

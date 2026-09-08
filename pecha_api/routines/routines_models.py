@@ -100,7 +100,10 @@ class RoutineSession(Base):
         nullable=False,
     )
     session_type = Column(SessionTypeEnum, nullable=False)
-    source_id = Column(UUID(as_uuid=True), nullable=True)
+    # Polymorphic: a real Postgres UUID (Plan/Series/Accumulator/collection id)
+    # for every session_type except RECITATION, where it can also be a
+    # non-UUID pecha-style text id.
+    source_id = Column(String(255), nullable=True)
     duration_ms = Column(Integer, nullable=True)
     display_order = Column(Integer, nullable=False)
 

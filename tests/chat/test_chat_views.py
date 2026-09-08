@@ -31,6 +31,7 @@ def _message_dto(room_id=None) -> ChatMessageDTO:
         room_id=room_id or uuid4(),
         sender_id=uuid4(),
         sender_email="sender@example.com",
+        sender_name="Sender Name",
         body="Hello",
         created_at=datetime.now(tz.utc).isoformat(),
     )
@@ -219,7 +220,58 @@ class TestRoomMessages:
     def test_delete_message(self, mock_validate, mock_service):
         client = get_client()
         mock_validate.return_value = MagicMock()
-        mock_service.return_value = None
+        mock_service.return_value = datetime.now(tz.utc).isoformat()
+
+        response = client.delete(
+            f"/chat/rooms/{uuid4()}/messages/{uuid4()}",
+            headers=AUTH_HEADERS,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    @patch('pecha_api.chat.views.get_broadcaster')
+    @patch('pecha_api.chat.views.delete_message_service')
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_delete_message_broadcasts_deletion(self, mock_validate, mock_service, mock_get_broadcaster):
+        from unittest.mock import AsyncMock
+
+        client = get_client()
+        user = MagicMock()
+        user.id = uuid4()
+        user.email = "sender@example.com"
+        user.firstname = "Sender"
+        user.lastname = "Name"
+        mock_validate.return_value = user
+        deleted_at = datetime.now(tz.utc).isoformat()
+        mock_service.return_value = deleted_at
+        broadcaster = MagicMock()
+        broadcaster.broadcast_message_deleted = AsyncMock()
+        mock_get_broadcaster.return_value = broadcaster
+        room_id, message_id = uuid4(), uuid4()
+
+        response = client.delete(
+            f"/chat/rooms/{room_id}/messages/{message_id}",
+            headers=AUTH_HEADERS,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        broadcaster.broadcast_message_deleted.assert_awaited_once_with(
+            room_id=room_id,
+            message_id=message_id,
+            deleted_by={"user_id": str(user.id), "email": user.email, "name": "Sender Name"},
+            deleted_at=deleted_at,
+        )
+
+    @patch('pecha_api.chat.views.get_broadcaster')
+    @patch('pecha_api.chat.views.delete_message_service')
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_delete_message_broadcast_failure_does_not_fail_request(
+        self, mock_validate, mock_service, mock_get_broadcaster
+    ):
+        client = get_client()
+        mock_validate.return_value = MagicMock()
+        mock_service.return_value = datetime.now(tz.utc).isoformat()
+        mock_get_broadcaster.side_effect = RuntimeError("redis down")
 
         response = client.delete(
             f"/chat/rooms/{uuid4()}/messages/{uuid4()}",
@@ -283,3 +335,108 @@ class TestRoomDetailAndProfile:
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["total"] == 0
+
+
+class TestMessageReactions:
+
+    @patch('pecha_api.chat.views.add_message_reaction_service')
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_add_reaction(self, mock_validate, mock_service):
+        from pecha_api.chat.response_models import ChatMessageReactionDTO
+        client = get_client()
+        mock_validate.return_value = MagicMock()
+        mock_service.return_value = [
+            ChatMessageReactionDTO(emoji="🙏", count=2, reacted_by_me=True)
+        ]
+
+        response = client.post(
+            f"/chat/rooms/{uuid4()}/messages/{uuid4()}/reactions",
+            json={"emoji": "🙏"},
+            headers=AUTH_HEADERS,
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data[0]["emoji"] == "🙏"
+        assert data[0]["count"] == 2
+        assert data[0]["reacted_by_me"] is True
+
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_add_reaction_empty_emoji_rejected(self, mock_validate):
+        client = get_client()
+        mock_validate.return_value = MagicMock()
+
+        response = client.post(
+            f"/chat/rooms/{uuid4()}/messages/{uuid4()}/reactions",
+            json={"emoji": "   "},
+            headers=AUTH_HEADERS,
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    @patch('pecha_api.chat.views.remove_message_reaction_service')
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_remove_reaction(self, mock_validate, mock_service):
+        client = get_client()
+        mock_validate.return_value = MagicMock()
+        mock_service.return_value = []
+
+        response = client.delete(
+            f"/chat/rooms/{uuid4()}/messages/{uuid4()}/reactions/🙏",
+            headers=AUTH_HEADERS,
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == []
+
+
+class TestReportMessage:
+
+    @patch('pecha_api.chat.views.report_message_service')
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_report_message(self, mock_validate, mock_service):
+        client = get_client()
+        mock_validate.return_value = MagicMock()
+        mock_service.return_value = None
+
+        response = client.post(
+            f"/chat/rooms/{uuid4()}/messages/{uuid4()}/report",
+            json={"reason": "SPAM", "description": "Repeated ads"},
+            headers=AUTH_HEADERS,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        mock_service.assert_called_once()
+
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_report_invalid_reason_rejected(self, mock_validate):
+        client = get_client()
+        mock_validate.return_value = MagicMock()
+
+        response = client.post(
+            f"/chat/rooms/{uuid4()}/messages/{uuid4()}/report",
+            json={"reason": "NOT_A_REASON"},
+            headers=AUTH_HEADERS,
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+class TestSendReplyViaRest:
+
+    @patch('pecha_api.chat.views.send_group_message_service')
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_send_group_reply_passes_parent(self, mock_validate, mock_service):
+        client = get_client()
+        mock_validate.return_value = MagicMock()
+        parent_id = uuid4()
+        mock_service.return_value = _message_dto()
+
+        response = client.post(
+            f"/chat/groups/{uuid4()}/messages",
+            json={"body": "A reply", "parent_message_id": str(parent_id)},
+            headers=AUTH_HEADERS,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert mock_service.call_args.kwargs["parent_message_id"] == parent_id

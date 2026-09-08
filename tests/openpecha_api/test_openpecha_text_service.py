@@ -15,7 +15,7 @@ def _mock_http_client(response_payload):
 
 
 @pytest.mark.asyncio
-@patch("openpecha_api.text.openpecha_text_service.get_authenticated_open_pecha_client")
+@patch("openpecha_api.text.openpecha_text_service.get_open_pecha_client")
 async def test_fetch_texts_by_category(mock_get_client):
     mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
         {"items": [{"id": "t1"}]}
@@ -32,7 +32,89 @@ async def test_fetch_texts_by_category(mock_get_client):
 
 
 @pytest.mark.asyncio
-@patch("openpecha_api.text.openpecha_text_service.get_authenticated_open_pecha_client")
+@patch("openpecha_api.text.openpecha_text_service.get_open_pecha_client")
+async def test_fetch_texts_by_category_lowercases_language(mock_get_client):
+    mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
+        {"items": []}
+    )
+
+    await fetch_texts_by_category("cat-1", language="BO", limit=10, offset=0)
+
+    http = mock_get_client.return_value.get_async_httpx_client.return_value
+    params = http.get.await_args.kwargs["params"]
+    assert params["language"] == "bo"
+
+
+@pytest.mark.asyncio
+@patch("openpecha_api.text.openpecha_text_service.get_open_pecha_client")
+async def test_fetch_texts_by_category_omits_category_id_when_not_provided(mock_get_client):
+    mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
+        {"items": []}
+    )
+
+    await fetch_texts_by_category(limit=10, offset=0)
+
+    http = mock_get_client.return_value.get_async_httpx_client.return_value
+    params = http.get.await_args.kwargs["params"]
+    assert "category_id" not in params
+    assert params == {"limit": 10, "offset": 0}
+
+
+@pytest.mark.asyncio
+@patch("openpecha_api.text.openpecha_text_service.get_open_pecha_client")
+async def test_fetch_texts_by_category_omits_title_when_not_provided(mock_get_client):
+    mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
+        {"items": []}
+    )
+
+    await fetch_texts_by_category("cat-1", limit=10, offset=0)
+
+    http = mock_get_client.return_value.get_async_httpx_client.return_value
+    params = http.get.await_args.kwargs["params"]
+    assert "title" not in params
+
+
+@pytest.mark.asyncio
+@patch("openpecha_api.text.openpecha_text_service.get_open_pecha_client")
+async def test_fetch_texts_by_category_omits_title_when_empty_string(mock_get_client):
+    mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
+        {"items": []}
+    )
+
+    await fetch_texts_by_category("cat-1", title="", limit=10, offset=0)
+
+    http = mock_get_client.return_value.get_async_httpx_client.return_value
+    params = http.get.await_args.kwargs["params"]
+    assert "title" not in params
+
+
+@pytest.mark.asyncio
+@patch("openpecha_api.text.openpecha_text_service.get_open_pecha_client")
+async def test_fetch_texts_by_category_with_title_filter(mock_get_client):
+    mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
+        {"items": [{"id": "t1"}]}
+    )
+
+    result = await fetch_texts_by_category(
+        "cat-1", language="en", title="sutra", limit=10, offset=0
+    )
+
+    assert result["items"][0]["id"] == "t1"
+    http = mock_get_client.return_value.get_async_httpx_client.return_value
+    http.get.assert_awaited_once_with(
+        "/v2/texts",
+        params={
+            "category_id": "cat-1",
+            "limit": 10,
+            "offset": 0,
+            "language": "en",
+            "title": "sutra",
+        },
+    )
+
+
+@pytest.mark.asyncio
+@patch("openpecha_api.text.openpecha_text_service.get_open_pecha_client")
 async def test_fetch_text_by_id(mock_get_client):
     mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
         {"id": "t1", "title": {"en": "Title"}}

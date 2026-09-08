@@ -68,6 +68,9 @@ class BookmarkGroupRecitationCollectionDTO(BaseModel):
     item_count: int
 
 
+SOURCE_ID_UUID_EXEMPT_TYPES = (BookmarkType.VERSE, BookmarkType.TEXT)
+
+
 class CreateBookmarkRequest(BaseModel):
     type: BookmarkType
     source_id: str
@@ -81,7 +84,7 @@ class CreateBookmarkRequest(BaseModel):
             raise ValueError("source_id must not be empty")
 
         bookmark_type = info.data.get("type")
-        if bookmark_type is not None and bookmark_type != BookmarkType.VERSE:
+        if bookmark_type is not None and bookmark_type not in SOURCE_ID_UUID_EXEMPT_TYPES:
             try:
                 return str(UUID(value))
             except ValueError:
@@ -128,7 +131,7 @@ class BookmarkExistsQuery(BaseModel):
             raise ValueError("source_id must not be empty")
 
         bookmark_type = info.data.get("type")
-        if bookmark_type is not None and bookmark_type != BookmarkType.VERSE:
+        if bookmark_type is not None and bookmark_type not in SOURCE_ID_UUID_EXEMPT_TYPES:
             try:
                 return str(UUID(value))
             except ValueError:

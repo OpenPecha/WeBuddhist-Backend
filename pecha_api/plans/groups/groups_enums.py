@@ -30,6 +30,18 @@ AuthorGroupInviteStatusEnum = Enum(
 )
 
 
+class AuthorGroupJoinRequestStatus(enum.Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
+AuthorGroupJoinRequestStatusEnum = Enum(
+    AuthorGroupJoinRequestStatus,
+    name="author_group_join_request_status",
+)
+
+
 class AuthorGroupType(enum.Enum):
     PAGE = "PAGE"
     COMMUNITY = "COMMUNITY"
@@ -38,4 +50,19 @@ class AuthorGroupType(enum.Enum):
 AuthorGroupTypeEnum = Enum(
     AuthorGroupType,
     name="author_group_type",
+)
+
+
+class AuthorGroupStatus(enum.Enum):
+    """Whether a group reaches the app at all. Separate from is_public, which
+    only decides how an already-published group is joined and read."""
+
+    DRAFT = "DRAFT"
+    PUBLISHED = "PUBLISHED"
+    UNPUBLISHED = "UNPUBLISHED"
+
+
+AuthorGroupStatusEnum = Enum(
+    AuthorGroupStatus,
+    name="author_group_status",
 )

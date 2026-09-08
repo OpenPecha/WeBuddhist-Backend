@@ -1,5 +1,6 @@
 from pecha_api.utils import Utils
 from unittest.mock import patch, AsyncMock, Mock, MagicMock
+from uuid import uuid4
 import pytest
 from pecha_api.cache.cache_repository import (
     get_cache_data,
@@ -29,6 +30,7 @@ async def test_get_user_info_cache_empty_cache():
 @pytest.mark.asyncio
 async def test_get_user_info_cache_success():
     mock_cache_data = UserInfoResponse(
+        id=uuid4(),
         username="username_1",
         email="email_1",
         firstname="firstname_1",
@@ -50,6 +52,7 @@ async def test_get_user_info_cache_success():
 @pytest.mark.asyncio
 async def test_set_user_info_cache_success():
     mock_cache_data = UserInfoResponse(
+        id=uuid4(),
         username="username_1",
         email="email_1",
         firstname="firstname_1",
@@ -73,6 +76,7 @@ async def test_set_user_info_cache_success():
 @pytest.mark.asyncio
 async def test_update_user_info_cache_updates_existing():
     mock_cache_data = UserInfoResponse(
+        id=uuid4(),
         username="username_1",
         email="email_1",
         firstname="firstname_1",
@@ -99,6 +103,7 @@ async def test_update_user_info_cache_updates_existing():
 @pytest.mark.asyncio
 async def test_update_user_info_cache_deletes_when_update_fails():
     mock_cache_data = UserInfoResponse(
+        id=uuid4(),
         username="username_1",
         email="email_1",
         firstname="firstname_1",
@@ -125,6 +130,7 @@ async def test_update_user_info_cache_deletes_when_update_fails():
 @pytest.mark.asyncio
 async def test_get_user_info_cache_converts_dict_to_model():
     mock_cache_dict = {
+        "id": str(uuid4()),
         "username": "username_1",
         "email": "email_1",
         "firstname": "firstname_1",
@@ -147,6 +153,7 @@ async def test_get_user_info_cache_converts_dict_to_model():
 @pytest.mark.asyncio
 async def test_update_user_avatar_cache_updates_existing():
     mock_cache_data = UserInfoResponse(
+        id=uuid4(),
         username="username_1",
         email="email_1",
         firstname="firstname_1",
@@ -173,6 +180,7 @@ async def test_update_user_avatar_cache_updates_existing():
 @pytest.mark.asyncio
 async def test_update_user_avatar_cache_deletes_when_update_fails():
     mock_cache_data = UserInfoResponse(
+        id=uuid4(),
         username="username_1",
         email="email_1",
         firstname="firstname_1",

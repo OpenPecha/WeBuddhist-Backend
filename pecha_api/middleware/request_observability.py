@@ -101,7 +101,14 @@ class RequestObservabilityMiddleware(BaseHTTPMiddleware):
             status_code = response.status_code
             return response
         except Exception as exc:
-            error_msg = type(exc).__name__
+            error_msg = f"{type(exc).__name__}: {exc}"
+            logger.error(
+                "Unhandled exception for %s %s: %s",
+                request.method,
+                _route_path(request),
+                error_msg,
+                exc_info=exc,
+            )
             raise
         finally:
             duration_ms = (time.perf_counter() - started) * 1000

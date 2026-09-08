@@ -6,7 +6,11 @@ from fastapi.testclient import TestClient
 from starlette import status
 
 from pecha_api.app import api
-from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole, AuthorGroupType
+from pecha_api.plans.groups.groups_enums import (
+    AuthorGroupMemberRole,
+    AuthorGroupStatus,
+    AuthorGroupType,
+)
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.groups.groups_response_models import (
     AuthorGroupDetailDTO,
@@ -365,6 +369,7 @@ def test_get_cms_groups_with_filters():
         tag_id=tag_id,
         is_public=None,
         group_type=None,
+        group_status=None,
         for_transfer=False,
         skip=5,
         limit=10,
@@ -434,7 +439,7 @@ def test_get_public_group_by_id():
     assert response.status_code == status.HTTP_200_OK
     assert response.headers.get("Cache-Control") == "no-store"
     assert response.json()["slug"] == "bodhichitta-authors"
-    mock_service.assert_called_once_with(group_id=group_id, require_public=True, language=None, token=None)
+    mock_service.assert_called_once_with(group_id=group_id, language=None, token=None)
 
 
 def test_get_public_group_by_id_with_language():
@@ -445,7 +450,7 @@ def test_get_public_group_by_id_with_language():
     ) as mock_service:
         response = client.get(f"/author/groups/{group_id}?language=bo")
     assert response.status_code == status.HTTP_200_OK
-    mock_service.assert_called_once_with(group_id=group_id, require_public=True, language="bo", token=None)
+    mock_service.assert_called_once_with(group_id=group_id, language="bo", token=None)
 
 
 def test_get_public_group_members():
@@ -977,3 +982,207 @@ def test_get_group_member_accumulations_with_pagination():
         skip=10,
         limit=1,
     )
+
+
+def _join_request_dto(request_status=None):
+    from pecha_api.plans.groups.groups_enums import AuthorGroupJoinRequestStatus
+    from pecha_api.plans.groups.groups_response_models import GroupJoinRequestDTO
+
+    return GroupJoinRequestDTO(
+        id=uuid4(),
+        status=request_status or AuthorGroupJoinRequestStatus.PENDING,
+    )
+
+
+def test_post_group_join_request_delegates_to_service():
+    group_id = uuid4()
+    dto = _join_request_dto()
+
+    with patch(
+        "pecha_api.plans.groups.groups_views.submit_group_join_request",
+        return_value=dto,
+    ) as mock_service:
+        response = client.post(
+            f"/author/groups/{group_id}/join-requests",
+            json={"message": "let me in"},
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    assert response.json()["status"] == "PENDING"
+    assert mock_service.call_args.kwargs["request"].message == "let me in"
+
+
+def test_post_group_join_request_allows_omitted_message():
+    group_id = uuid4()
+
+    with patch(
+        "pecha_api.plans.groups.groups_views.submit_group_join_request",
+        return_value=_join_request_dto(),
+    ) as mock_service:
+        response = client.post(
+            f"/author/groups/{group_id}/join-requests",
+            json={},
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    assert mock_service.call_args.kwargs["request"].message is None
+
+
+def test_post_group_join_request_rejects_overlong_message():
+    group_id = uuid4()
+
+    with patch(
+        "pecha_api.plans.groups.groups_views.submit_group_join_request",
+    ) as mock_service:
+        response = client.post(
+            f"/author/groups/{group_id}/join-requests",
+            json={"message": "x" * 1001},
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    mock_service.assert_not_called()
+
+
+def test_post_group_join_request_requires_auth():
+    response = client.post(f"/author/groups/{uuid4()}/join-requests", json={})
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_get_cms_group_join_requests_defaults_to_pending():
+    from pecha_api.plans.groups.groups_enums import AuthorGroupJoinRequestStatus
+    from pecha_api.plans.groups.groups_response_models import GroupJoinRequestListResponse
+
+    group_id = uuid4()
+    with patch(
+        "pecha_api.plans.groups.groups_views.list_group_join_requests",
+        return_value=GroupJoinRequestListResponse(requests=[], skip=0, limit=20, total=0),
+    ) as mock_service:
+        response = client.get(
+            f"/cms/author/groups/{group_id}/join-requests",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert (
+        mock_service.call_args.kwargs["status_filter"]
+        == AuthorGroupJoinRequestStatus.PENDING
+    )
+
+
+def test_get_cms_group_join_requests_honours_status_filter():
+    from pecha_api.plans.groups.groups_enums import AuthorGroupJoinRequestStatus
+    from pecha_api.plans.groups.groups_response_models import GroupJoinRequestListResponse
+
+    group_id = uuid4()
+    with patch(
+        "pecha_api.plans.groups.groups_views.list_group_join_requests",
+        return_value=GroupJoinRequestListResponse(requests=[], skip=0, limit=20, total=0),
+    ) as mock_service:
+        response = client.get(
+            f"/cms/author/groups/{group_id}/join-requests?status=APPROVED",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert (
+        mock_service.call_args.kwargs["status_filter"]
+        == AuthorGroupJoinRequestStatus.APPROVED
+    )
+
+
+def test_approve_cms_group_join_request_delegates_to_service():
+    from pecha_api.plans.groups.groups_enums import AuthorGroupJoinRequestStatus
+
+    group_id = uuid4()
+    request_id = uuid4()
+    with patch(
+        "pecha_api.plans.groups.groups_views.approve_group_join_request",
+        return_value=_join_request_dto(AuthorGroupJoinRequestStatus.APPROVED),
+    ) as mock_service:
+        response = client.post(
+            f"/cms/author/groups/{group_id}/join-requests/{request_id}/approve",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["status"] == "APPROVED"
+    mock_service.assert_called_once_with(
+        token="dummy", group_id=group_id, request_id=request_id
+    )
+
+
+def test_reject_cms_group_join_request_delegates_to_service():
+    from pecha_api.plans.groups.groups_enums import AuthorGroupJoinRequestStatus
+
+    group_id = uuid4()
+    request_id = uuid4()
+    with patch(
+        "pecha_api.plans.groups.groups_views.reject_group_join_request",
+        return_value=_join_request_dto(AuthorGroupJoinRequestStatus.REJECTED),
+    ) as mock_service:
+        response = client.post(
+            f"/cms/author/groups/{group_id}/join-requests/{request_id}/reject",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["status"] == "REJECTED"
+    mock_service.assert_called_once_with(
+        token="dummy", group_id=group_id, request_id=request_id
+    )
+
+
+
+
+def test_patch_cms_group_status_delegates_to_service():
+    group_id = uuid4()
+    detail = _group_detail()
+    detail.status = AuthorGroupStatus.PUBLISHED
+    with patch(
+        "pecha_api.plans.groups.groups_views.update_group_status",
+        return_value=detail,
+    ) as mock_service:
+        response = client.patch(
+            f"/cms/author/groups/{group_id}/status",
+            json={"status": "PUBLISHED"},
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["status"] == "PUBLISHED"
+    kwargs = mock_service.call_args.kwargs
+    assert kwargs["token"] == "dummy"
+    assert kwargs["group_id"] == group_id
+    assert kwargs["request"].status == AuthorGroupStatus.PUBLISHED
+
+
+def test_patch_cms_group_status_rejects_unknown_status():
+    with patch(
+        "pecha_api.plans.groups.groups_views.update_group_status",
+    ) as mock_service:
+        response = client.patch(
+            f"/cms/author/groups/{uuid4()}/status",
+            json={"status": "NOT_A_STATUS"},
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    mock_service.assert_not_called()
+
+
+def test_get_cms_groups_passes_status_filter():
+    listing = AuthorGroupListResponse(groups=[], skip=0, limit=20, total=0)
+    with patch(
+        "pecha_api.plans.groups.groups_views.list_cms_groups",
+        return_value=listing,
+    ) as mock_service:
+        response = client.get(
+            "/cms/author/groups?status=DRAFT",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert mock_service.call_args.kwargs["group_status"] == AuthorGroupStatus.DRAFT

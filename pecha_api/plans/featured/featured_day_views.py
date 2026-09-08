@@ -14,5 +14,5 @@ user_follow_router = APIRouter(
 
 
 @user_follow_router.get("/day", status_code=status.HTTP_200_OK, response_model=PlanDayDTO)
-def get_featured_day(language: str = Query("en")) -> PlanDayDTO:
-    return get_featured_day_service(language=language)
+async def get_featured_day(language: str = Query("en")) -> PlanDayDTO:
+    return await get_featured_day_service(language=language)

@@ -16,6 +16,7 @@ from ..users.users_models import Users, PasswordReset
 from ..db.database import SessionLocal
 from ..users.users_repository import (
     get_user_by_email,
+    get_user_by_email_or_none,
     get_user_by_phone,
     get_user_by_username,
     link_user_phone,
@@ -34,6 +35,7 @@ from .auth_repository import (
 )
 from .password_reset_repository import save_password_reset, get_password_reset_by_token
 from .auth_enums import RegistrationSource
+from ..error_contants import ErrorConstants
 from fastapi import HTTPException
 from starlette import status
 from jinja2 import Template
@@ -98,6 +100,8 @@ def create_user(create_user_request: CreateUserRequest, registration_source: Reg
     new_user.registration_source = registration_source.value
 
     with SessionLocal() as db_session:
+        if create_user_request.email and get_user_by_email_or_none(db=db_session, email=create_user_request.email):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ErrorConstants.USER_ALREADY_EXISTS)
         saved_user = save_user(db=db_session, user=new_user)
         return saved_user
 

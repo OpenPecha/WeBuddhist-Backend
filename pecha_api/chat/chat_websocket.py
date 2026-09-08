@@ -96,6 +96,56 @@ class ChatBroadcaster:
             logger.error(f"Failed to broadcast message to Redis: {e}")
             raise
 
+    async def broadcast_reactions(
+        self,
+        room_id: UUID,
+        message_id: UUID,
+        reactions: list,
+    ) -> None:
+        """Publish a message's updated reaction summary to the room.
+
+        reacted_by_me is viewer-specific, so it is forced False here; clients
+        must derive their own state from each summary's user_ids."""
+        channel = f"chat:room:{room_id}:messages"
+        payload = {
+            "type": "reactions_updated",
+            "message_id": str(message_id),
+            "reactions": [
+                {**reaction.model_dump(mode="json"), "reacted_by_me": False}
+                for reaction in reactions
+            ],
+        }
+
+        try:
+            await self.redis.publish(channel, json.dumps(payload))
+        except Exception as e:
+            logger.error(f"Failed to broadcast reactions to Redis: {e}")
+            raise
+
+    async def broadcast_message_deleted(
+        self,
+        room_id: UUID,
+        message_id: UUID,
+        deleted_by: dict,
+        deleted_at: str,
+    ) -> None:
+        """Publish a message deletion to the room, so every connected client
+        can grey it out live (WhatsApp-style) instead of waiting for the next
+        history fetch."""
+        channel = f"chat:room:{room_id}:messages"
+        payload = {
+            "type": "message_deleted",
+            "message_id": str(message_id),
+            "deleted_by": deleted_by,
+            "deleted_at": deleted_at,
+        }
+
+        try:
+            await self.redis.publish(channel, json.dumps(payload))
+        except Exception as e:
+            logger.error(f"Failed to broadcast message deletion to Redis: {e}")
+            raise
+
     async def broadcast_typing(
         self,
         room_id: UUID,
@@ -116,6 +166,21 @@ class ChatBroadcaster:
             await self.redis.publish(channel, json.dumps(payload))
         except Exception as e:
             logger.error(f"Failed to broadcast typing indicator to Redis: {e}")
+
+    async def broadcast_room_closed(self, room_id: UUID, reason: str) -> None:
+        """Tell every server holding a socket for this room to drop it.
+
+        Connections live in each server's memory, so Redis is what carries the
+        eviction across the fleet. Best-effort: a publish failure must not fail
+        the hide, which is already gated at the request layer.
+        """
+        channel = f"chat:room:{room_id}:messages"
+        payload = {"type": "room_closed", "reason": reason}
+
+        try:
+            await self.redis.publish(channel, json.dumps(payload))
+        except Exception as e:
+            logger.error(f"Failed to broadcast room close to Redis: {e}")
 
     async def broadcast_presence(self, room_id: UUID) -> None:
         """Publish the current online roster for a room (not persisted)."""

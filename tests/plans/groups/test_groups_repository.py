@@ -1,16 +1,29 @@
 import uuid
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy.orm import Session
 
+from pecha_api.plans.groups.groups_enums import (
+    AuthorGroupJoinRequestStatus,
+    AuthorGroupStatus,
+)
 from pecha_api.plans.groups.groups_repository import (
     clear_user_series_partner_ids_for_group,
+    create_group_join_request,
+    has_pending_join_request,
+    list_join_requests_by_group,
+    list_undispatched_join_request_decisions,
+    list_undispatched_join_request_notifications,
     get_group_id_for_plan,
     get_group_id_for_series,
     get_group_ids_by_plan_ids,
     get_group_ids_by_series_ids,
     get_groups_paginated,
+    get_public_group_ids,
+    is_group_id_published,
+    lock_group_status,
     get_plans_by_group_id,
     get_series_by_group_id,
     get_series_for_group_ids,
@@ -388,3 +401,201 @@ def test_get_standalone_plans_for_group_ids_with_exclude_ids_applies_extra_filte
     )
 
     assert query.filter.call_count == 2
+
+
+def test_has_pending_join_request_true_when_row_exists():
+    db = _make_session_mock()
+    db.query.return_value.filter.return_value.first.return_value = (uuid.uuid4(),)
+
+    assert has_pending_join_request(db=db, group_id=uuid.uuid4(), user_id=uuid.uuid4()) is True
+
+
+def test_has_pending_join_request_false_when_absent():
+    db = _make_session_mock()
+    db.query.return_value.filter.return_value.first.return_value = None
+
+    assert has_pending_join_request(db=db, group_id=uuid.uuid4(), user_id=uuid.uuid4()) is False
+
+
+def test_list_join_requests_by_group_returns_rows_and_total():
+    db = _make_session_mock()
+    row = MagicMock()
+    query = db.query.return_value.options.return_value.filter.return_value
+    query.count.return_value = 1
+    query.order_by.return_value.offset.return_value.limit.return_value.all.return_value = [row]
+
+    rows, total = list_join_requests_by_group(db=db, group_id=uuid.uuid4(), skip=0, limit=20)
+
+    assert rows == [row]
+    assert total == 1
+
+
+def test_list_join_requests_by_group_filters_by_status():
+    db = _make_session_mock()
+    base = db.query.return_value.options.return_value.filter.return_value
+    filtered = base.filter.return_value
+    filtered.count.return_value = 0
+    filtered.order_by.return_value.offset.return_value.limit.return_value.all.return_value = []
+
+    rows, total = list_join_requests_by_group(
+        db=db,
+        group_id=uuid.uuid4(),
+        skip=0,
+        limit=20,
+        status=AuthorGroupJoinRequestStatus.APPROVED,
+    )
+
+    assert rows == []
+    assert total == 0
+    base.filter.assert_called_once()
+
+
+def test_create_group_join_request_commits_and_refreshes():
+    db = _make_session_mock()
+    join_request = MagicMock()
+
+    result = create_group_join_request(db=db, join_request=join_request)
+
+    db.add.assert_called_once_with(join_request)
+    db.commit.assert_called_once()
+    db.refresh.assert_called_once_with(join_request)
+    assert result is join_request
+
+
+def test_undispatched_notifications_excludes_reviewed_rows():
+    """A reviewed row belongs to the decision sweep; listing it in both
+    loops would double-send the notification."""
+    db = _make_session_mock()
+    query = db.query.return_value.filter.return_value
+    query.order_by.return_value.limit.return_value.all.return_value = []
+
+    list_undispatched_join_request_notifications(
+        db=db, older_than=datetime.now(timezone.utc), limit=50
+    )
+
+    filters = db.query.return_value.filter.call_args[0]
+    rendered = " ".join(str(f) for f in filters)
+    assert "reviewed_at IS NULL" in rendered
+
+
+def test_undispatched_decisions_excludes_publish_sweep_rows():
+    """Auto-approved rows (reviewed_by NULL) are admitted silently by design;
+    recovering them would send the notification that path skips."""
+    db = _make_session_mock()
+    query = db.query.return_value.filter.return_value
+    query.order_by.return_value.limit.return_value.all.return_value = []
+
+    list_undispatched_join_request_decisions(
+        db=db, older_than=datetime.now(timezone.utc), limit=50
+    )
+
+    filters = db.query.return_value.filter.call_args[0]
+    rendered = " ".join(str(f) for f in filters)
+    assert "reviewed_by IS NOT NULL" in rendered
+
+
+def _paginated_query_mock(db):
+    query = MagicMock()
+    db.query.return_value = query
+    query.options.return_value = query
+    query.filter.return_value = query
+    query.count.return_value = 0
+    query.order_by.return_value = query
+    query.offset.return_value = query
+    query.limit.return_value.all.return_value = []
+    return query
+
+
+def _rendered_filters(query) -> str:
+    """Compile the clauses passed to .filter() into comparable SQL."""
+    return " ".join(
+        str(clause.compile(compile_kwargs={"literal_binds": True}))
+        for clause in query.filter.call_args.args
+    )
+
+
+def test_get_groups_paginated_filters_by_status_when_given():
+    db = _make_session_mock()
+    query = _paginated_query_mock(db)
+
+    get_groups_paginated(
+        db=db, skip=0, limit=10, status=AuthorGroupStatus.PUBLISHED
+    )
+
+    assert "status" in _rendered_filters(query)
+
+
+def test_get_groups_paginated_omits_status_filter_by_default():
+    """CMS listings must still return drafts, so status is opt-in."""
+    db = _make_session_mock()
+    query = _paginated_query_mock(db)
+
+    get_groups_paginated(db=db, skip=0, limit=10)
+
+    assert "status" not in _rendered_filters(query)
+
+
+def test_get_public_group_ids_returns_only_published_public_groups():
+    db = _make_session_mock()
+    query = MagicMock()
+    db.query.return_value = query
+    query.filter.return_value = query
+    query.all.return_value = []
+
+    get_public_group_ids(db=db)
+
+    rendered = _rendered_filters(query)
+    assert "status" in rendered
+    assert "is_public" in rendered
+
+
+def test_is_group_id_published_only_selects_status_column():
+    """Hot-path helper: must avoid get_group_by_id's eager loads."""
+    db = _make_session_mock()
+    query = MagicMock()
+    db.query.return_value = query
+    query.filter.return_value = query
+    query.first.return_value = ("PUBLISHED",)
+
+    assert is_group_id_published(db=db, group_id=uuid.uuid4()) is True
+    query.options.assert_not_called()
+
+
+def test_is_group_id_published_false_for_draft_and_missing():
+    db = _make_session_mock()
+    query = MagicMock()
+    db.query.return_value = query
+    query.filter.return_value = query
+
+    query.first.return_value = ("DRAFT",)
+    assert is_group_id_published(db=db, group_id=uuid.uuid4()) is False
+
+    query.first.return_value = None
+    assert is_group_id_published(db=db, group_id=uuid.uuid4()) is False
+
+
+def test_is_group_id_published_locks_row_when_requested():
+    """for_update serialises a status change against an in-flight write that
+    already passed its check (e.g. a chat message mid-send)."""
+    db = _make_session_mock()
+    query = MagicMock()
+    db.query.return_value = query
+    query.filter.return_value = query
+    query.with_for_update.return_value = query
+    query.first.return_value = ("PUBLISHED",)
+
+    assert is_group_id_published(db=db, group_id=uuid.uuid4(), for_update=True) is True
+    query.with_for_update.assert_called_once()
+
+
+def test_is_group_id_published_does_not_lock_by_default():
+    """Read-only callers must not take a row lock."""
+    db = _make_session_mock()
+    query = MagicMock()
+    db.query.return_value = query
+    query.filter.return_value = query
+    query.first.return_value = ("PUBLISHED",)
+
+    is_group_id_published(db=db, group_id=uuid.uuid4())
+
+    query.with_for_update.assert_not_called()

@@ -28,6 +28,9 @@ from pecha_api.chat.repository import (
 )
 from pecha_api.chat.response_models import (
     ChatMessageDTO,
+    ChatMessageParentDTO,
+    ChatMessageReactionDTO,
+    ChatMessageReactionUserDTO,
     ChatPeopleResponse,
     ChatPersonDTO,
     ChatRoomDTO,
@@ -38,6 +41,8 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.plans.groups.groups_models import AuthorGroup
 from pecha_api.plans.groups.groups_repository import (
     get_group_by_id,
+    is_group_id_published,
+    is_group_published,
     is_user_following_group,
     is_user_joined_group,
     list_group_joiners_paginated,
@@ -68,15 +73,76 @@ def _generate_presigned_url(s3_key: Optional[str]) -> Optional[str]:
         return None
 
 
-def build_message_dto(message: ChatMessage) -> ChatMessageDTO:
+def _build_reaction_dtos(reactions, viewer_id: Optional[UUID]) -> list:
+    """Aggregate reaction rows into per-emoji summaries (first-seen order)."""
+    if not reactions:
+        return []
+    summaries: dict = {}
+    for reaction in reactions:
+        summary = summaries.setdefault(
+            reaction.emoji,
+            ChatMessageReactionDTO(emoji=reaction.emoji, count=0, reacted_by_me=False),
+        )
+        summary.count += 1
+        summary.user_ids.append(reaction.user_id)
+        user = getattr(reaction, "user", None)
+        summary.users.append(
+            ChatMessageReactionUserDTO(
+                user_id=reaction.user_id,
+                email=user.email if user else None,
+                name=(
+                    f"{user.firstname} {user.lastname or ''}".strip() or user.email
+                )
+                if user
+                else None,
+            )
+        )
+        if viewer_id is not None and reaction.user_id == viewer_id:
+            summary.reacted_by_me = True
+    return list(summaries.values())
+
+
+def _sender_name(sender) -> str:
+    if not sender:
+        return "Unknown"
+    return f"{sender.firstname} {sender.lastname or ''}".strip() or sender.email
+
+
+def _build_parent_dto(message: ChatMessage) -> Optional[ChatMessageParentDTO]:
+    has_parent = getattr(message, "parent_message_id", None) is not None
+    parent = getattr(message, "parent", None) if has_parent else None
+    if parent is None or parent.deleted_at is not None:
+        return None
+    return ChatMessageParentDTO(
+        id=parent.id,
+        sender_id=parent.sender_id,
+        sender_email=parent.sender.email if parent.sender else "unknown@example.com",
+        sender_name=_sender_name(parent.sender),
+        sender_avatar_url=_generate_presigned_url(parent.sender.avatar_url if parent.sender else None),
+        body=parent.body,
+        created_at=_isoformat(parent.created_at),
+    )
+
+
+def build_message_dto(
+    message: ChatMessage,
+    reactions=None,
+    viewer_id: Optional[UUID] = None,
+) -> ChatMessageDTO:
     sender_email = message.sender.email if message.sender else "unknown@example.com"
+    is_deleted = message.deleted_at is not None
     return ChatMessageDTO(
         id=message.id,
         room_id=message.room_id,
         sender_id=message.sender_id,
         sender_email=sender_email,
-        body=message.body,
+        sender_name=_sender_name(message.sender),
+        sender_avatar_url=_generate_presigned_url(message.sender.avatar_url if message.sender else None),
+        body="" if is_deleted else message.body,
         created_at=_isoformat(message.created_at),
+        deleted_at=_isoformat(message.deleted_at),
+        parent=_build_parent_dto(message),
+        reactions=_build_reaction_dtos(reactions, viewer_id),
     )
 
 
@@ -127,25 +193,61 @@ def _default_group_room_name(group: AuthorGroup) -> str:
     return group.slug
 
 
-def resolve_or_create_group_room(db: Session, group_id: UUID, user: Users) -> ChatRoom:
-    """Get the group's chat room, auto-creating it (with the caller as CREATOR)
-    on the first message if the caller is a joiner/follower of the group."""
-    room = get_room_by_group_id(db=db, group_id=group_id)
-    if room is not None:
-        return room
+def _is_eligible_for_group_chat(db: Session, group_id: UUID, user_id: UUID) -> bool:
+    return is_user_joined_group(
+        db=db, group_id=group_id, user_id=user_id
+    ) or is_user_following_group(db=db, group_id=group_id, user_id=user_id)
 
-    group = get_group_by_id(db=db, group_id=group_id)
-    if not group:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
 
-    is_eligible = is_user_joined_group(
-        db=db, group_id=group_id, user_id=user.id
-    ) or is_user_following_group(db=db, group_id=group_id, user_id=user.id)
-    if not is_eligible:
+def _require_group_chat_eligibility(db: Session, group_id: UUID, user_id: UUID) -> None:
+    if not _is_eligible_for_group_chat(db=db, group_id=group_id, user_id=user_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only joined or following members of this group can send messages in its chat",
         )
+
+
+def resolve_or_create_group_room(
+    db: Session,
+    group_id: UUID,
+    user: Users,
+    lock_group: bool = False,
+) -> ChatRoom:
+    """Get the group's chat room, auto-creating it (with the caller as CREATOR)
+    on the first message if the caller is a joiner/follower of the group. Any
+    other joiner/follower is auto-added (or re-activated) as a MEMBER the
+    first time they reach an already-existing room."""
+    # Before the existing-room shortcut, so a room created while the group was
+    # live stops serving once it is hidden. Writers pass lock_group=True to keep
+    # a concurrent hide out of the gap before their commit.
+    if not is_group_id_published(db=db, group_id=group_id, for_update=lock_group):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
+
+    room = get_room_by_group_id(db=db, group_id=group_id)
+    if room is not None:
+        member = get_member(db=db, room_id=room.id, user_id=user.id)
+        if member is None or member.left_at is not None:
+            _require_group_chat_eligibility(db=db, group_id=group_id, user_id=user.id)
+            if member is None:
+                add_member(
+                    db=db,
+                    member=ChatRoomMember(
+                        room_id=room.id,
+                        user_id=user.id,
+                        role=ChatRoomMemberRole.MEMBER.value,
+                    ),
+                )
+            else:
+                member.left_at = None
+                db.commit()
+        return room
+
+    _require_group_chat_eligibility(db=db, group_id=group_id, user_id=user.id)
+
+    # Full object needed here for the room's name and avatar.
+    group = get_group_by_id(db=db, group_id=group_id)
+    if group is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
 
     room = ChatRoom(
         group_id=group_id,
@@ -207,7 +309,33 @@ def _get_room_or_404(db: Session, room_id: UUID) -> ChatRoom:
     room = get_room_by_id(db=db, room_id=room_id)
     if not room:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
+    # Every room-id route resolves through here, so one gate closes detail,
+    # history, reactions, reports and member ops. DM rooms have no group_id.
+    if room.group_id is not None and not is_group_id_published(
+        db=db, group_id=room.group_id
+    ):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
     return room
+
+
+async def close_group_chat_sockets(group_id: UUID) -> None:
+    """Drop live chat sockets for a group that is no longer published.
+
+    Best-effort: a Redis failure must not fail the hide. Worst case the socket
+    survives to its next frame, where the request-layer gate ends it.
+    """
+    try:
+        with SessionLocal() as db:
+            room = get_room_by_group_id(db=db, group_id=group_id)
+        if room is None:
+            return
+        from pecha_api.chat.chat_websocket import get_broadcaster
+
+        await get_broadcaster().broadcast_room_closed(
+            room_id=room.id, reason="GROUP_UNPUBLISHED"
+        )
+    except Exception:
+        logger.exception(f"Failed to close chat sockets for group {group_id}")
 
 
 def _require_active_member(db: Session, room_id: UUID, user_id: UUID) -> ChatRoomMember:
@@ -283,7 +411,7 @@ def list_group_people_service(
     client can start a direct chat without already knowing a user_id."""
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
-        if not group:
+        if not group or not is_group_published(group):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
 
         users, total = list_group_joiners_paginated(db=db, group_id=group_id, skip=skip, limit=limit)

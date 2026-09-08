@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime, timezone, date, timedelta
 from typing import List, Optional
 from uuid import UUID
@@ -21,6 +22,10 @@ from pecha_api.plans.shared.metadata_utils import (
     filter_by_language_with_fallback,
     format_metadata_response,
 )
+from pecha_api.accumulator.accumulator_service import (
+    resolve_mala_image_fields,
+    _pick_mantra_metadata,
+)
 from pecha_api.plans.shared.permissions import (
     require_can_create_content,
     require_can_read_group_content,
@@ -37,13 +42,28 @@ from .event_response_models import (
     CreateEventRequest,
     UpdateEventRequest,
     EventDTO,
+    EventFormat,
     EventMetadataDTO,
     EventLinkDTO,
     EventsResponse,
+    LinkedResourceDTO,
     RecurrenceDTO,
     _validate_date_range,
 )
-from .recurrence_service import compute_initial_dates, resolve_next_occurrence, resolve_current_or_next_occurrence, expand_occurrences
+from .recurrence_service import (
+    compute_initial_dates,
+    resolve_next_occurrence,
+    resolve_current_or_next_occurrence,
+    expand_occurrences,
+    combine_date_with_time_of_day,
+    combine_occurrence_window,
+)
+from .notification_dispatch_service import enqueue_event_notification
+from .event_reminder_service import (
+    cancel_event_reminders,
+    reschedule_event_reminders,
+    schedule_event_reminders,
+)
 from .event_repository import (
     save_event,
     get_event_by_id,
@@ -142,6 +162,79 @@ def _location_to_dto(event: Event) -> Optional[LocationDTO]:
     )
 
 
+def _presign_image_url(image_url: Optional[str]) -> Optional[str]:
+    if not image_url:
+        return None
+    try:
+        return generate_presigned_access_url(
+            bucket_name=get("AWS_BUCKET_NAME"),
+            s3_key=image_url,
+        )
+    except Exception:
+        return None
+
+
+def _plan_to_linked_resource(event: Event) -> Optional[LinkedResourceDTO]:
+    plan = getattr(event, "plan", None)
+    if plan is None:
+        return None
+    return LinkedResourceDTO(
+        id=plan.id,
+        name=plan.title,
+        image_url=_presign_image_url(plan.image_url),
+    )
+
+
+def _accumulator_to_linked_resource(
+    event: Event, language: Optional[str] = None
+) -> Optional[LinkedResourceDTO]:
+    accumulator = getattr(event, "accumulator", None)
+    if accumulator is None:
+        return None
+    metadata = _pick_mantra_metadata(accumulator.metadata_entries, language)
+    _, mala_image_url = resolve_mala_image_fields(accumulator)
+    return LinkedResourceDTO(
+        id=accumulator.id,
+        name=metadata.name if metadata else None,
+        image_url=mala_image_url,
+    )
+
+
+def _mantra_to_linked_resource(
+    event: Event, language: Optional[str] = None
+) -> Optional[LinkedResourceDTO]:
+    mantra = getattr(event, "mantra", None)
+    if mantra is None:
+        return None
+    metadata = _pick_mantra_metadata(mantra.metadata_entries, language)
+    _, mala_image_url = resolve_mala_image_fields(mantra)
+    return LinkedResourceDTO(
+        id=mantra.id,
+        name=metadata.title if metadata else None,
+        image_url=mala_image_url,
+    )
+
+
+def _timer_to_linked_resource(event: Event) -> Optional[LinkedResourceDTO]:
+    timer = getattr(event, "timer", None)
+    if timer is None:
+        return None
+    return LinkedResourceDTO(id=timer.id, name=timer.name, image_url=None)
+
+
+def _group_recitation_collection_to_linked_resource(
+    event: Event,
+) -> Optional[LinkedResourceDTO]:
+    collection = getattr(event, "group_recitation_collection", None)
+    if collection is None:
+        return None
+    return LinkedResourceDTO(
+        id=collection.id,
+        name=collection.name,
+        image_url=_presign_image_url(collection.img_url),
+    )
+
+
 def _group_avatar_url(avatar_key: Optional[str]) -> Optional[str]:
     if not avatar_key:
         return None
@@ -202,20 +295,27 @@ def _event_to_dto(
     return EventDTO(
         id=event.id,
         plan_id=event.plan_id,
+        plan=_plan_to_linked_resource(event),
         accumulator_id=event.accumulator_id,
+        accumulator=_accumulator_to_linked_resource(event, language=language),
         mantra_id=event.mantra_id,
+        mantra=_mantra_to_linked_resource(event, language=language),
         timer_id=event.timer_id,
+        timer=_timer_to_linked_resource(event),
         group_recitation_collection_id=event.group_recitation_collection_id,
+        group_recitation_collection=_group_recitation_collection_to_linked_resource(event),
         group_id=event.group_id,
         location_id=event.location_id,
         location=_location_to_dto(event),
         start_date=event.start_date,
         end_date=event.end_date,
+        timezone=getattr(event, "timezone", None),
         is_one_day=event.end_date.date() == event.start_date.date(),
         featured=event.featured,
         is_recurring=event.is_recurring,
         recurrence=recurrence_dto,
         occurrence_date=occurrence_date,
+        event_format=event.event_format,
         metadata=_metadata_response(
             event.metadata_entries, language=language, fallback=fallback
         ),
@@ -285,13 +385,20 @@ def _validate_location(db, location_id: Optional[UUID], group_id: UUID) -> None:
         )
 
 
+@dataclass(frozen=True)
+class EventContentFilter:
+    """Which content association(s) events must be linked to, for querying."""
+    group_id: Optional[UUID] = None
+    plan_id: Optional[UUID] = None
+    accumulator_id: Optional[UUID] = None
+    mantra_id: Optional[UUID] = None
+    timer_id: Optional[UUID] = None
+    group_recitation_collection_id: Optional[UUID] = None
+    event_format: Optional[EventFormat] = None
+
+
 def get_events_service(
-    group_id: Optional[UUID] = None,
-    plan_id: Optional[UUID] = None,
-    accumulator_id: Optional[UUID] = None,
-    mantra_id: Optional[UUID] = None,
-    timer_id: Optional[UUID] = None,
-    group_recitation_collection_id: Optional[UUID] = None,
+    content_filter: Optional[EventContentFilter] = None,
     from_date: Optional[datetime] = None,
     to_date: Optional[datetime] = None,
     language: Optional[str] = None,
@@ -302,6 +409,7 @@ def get_events_service(
     limit: int = 20,
     token: Optional[str] = None,
 ) -> EventsResponse:
+    content_filter = content_filter or EventContentFilter()
     with SessionLocal() as db:
         current_user = None
         if token:
@@ -327,43 +435,54 @@ def get_events_service(
         # Note: We need all events to properly merge and paginate with recurring occurrences
         one_shot_events, _ = get_events(
             db,
-            group_id=group_id,
-            plan_id=plan_id,
-            accumulator_id=accumulator_id,
-            mantra_id=mantra_id,
-            timer_id=timer_id,
-            group_recitation_collection_id=group_recitation_collection_id,
+            group_id=content_filter.group_id,
+            plan_id=content_filter.plan_id,
+            accumulator_id=content_filter.accumulator_id,
+            mantra_id=content_filter.mantra_id,
+            timer_id=content_filter.timer_id,
+            group_recitation_collection_id=content_filter.group_recitation_collection_id,
+            event_format=content_filter.event_format,
             from_date=from_date,
             to_date=to_date,
             restrict_group_ids=restrict_group_ids,
             skip=0,
             limit=None,
         )
-        
+
         # Get recurring event templates
         recurring_templates = get_recurring_events(
             db,
-            group_id=group_id,
-            plan_id=plan_id,
-            accumulator_id=accumulator_id,
-            mantra_id=mantra_id,
-            timer_id=timer_id,
-            group_recitation_collection_id=group_recitation_collection_id,
+            group_id=content_filter.group_id,
+            plan_id=content_filter.plan_id,
+            accumulator_id=content_filter.accumulator_id,
+            mantra_id=content_filter.mantra_id,
+            timer_id=content_filter.timer_id,
+            group_recitation_collection_id=content_filter.group_recitation_collection_id,
+            event_format=content_filter.event_format,
             restrict_group_ids=restrict_group_ids,
         )
         
-        # Expand recurring events into occurrences
+        # Expand recurring events, keeping only each template's earliest
+        # occurrence within the window so a single recurring event surfaces
+        # once per listing instead of once per occurrence (e.g. 12 rows for
+        # a monthly recurrence over the default 12-month window).
         expanded_occurrences = []
         for template in recurring_templates:
             occurrences = expand_occurrences(template, from_date_obj, to_date_obj)
-            for start_d, end_d in occurrences:
-                # Create a copy-like structure with occurrence dates
-                expanded_occurrences.append({
-                    'event': template,
-                    'start_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
-                    'end_date': datetime(end_d.year, end_d.month, end_d.day, 23, 59, 59, tzinfo=timezone.utc),
-                    'occurrence_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
-                })
+            if not occurrences:
+                continue
+            start_d, end_d = occurrences[0]
+            # Carry the template's own time-of-day onto the occurrence,
+            # instead of defaulting to midnight / end-of-day.
+            occurrence_start, occurrence_end = combine_occurrence_window(
+                start_d, end_d, template.start_date, template.end_date
+            )
+            expanded_occurrences.append({
+                'event': template,
+                'start_date': occurrence_start,
+                'end_date': occurrence_end,
+                'occurrence_date': occurrence_start,
+            })
         
         # Merge one-shot events and expanded occurrences
         all_event_items = [
@@ -379,9 +498,9 @@ def get_events_service(
         paginated_items = all_event_items[skip:skip + limit]
         
         # Get participant counts for all unique event IDs
-        event_ids = list(set(item['event'].id for item in paginated_items))
+        event_ids = list({item['event'].id for item in paginated_items})
         counts_by_event = get_event_participant_counts(db=db, event_ids=event_ids)
-        group_ids = list(set(item['event'].group_id for item in paginated_items))
+        group_ids = list({item['event'].group_id for item in paginated_items})
         group_cards = _group_card_map(db, group_ids)
 
         joined_ids: set[UUID] = set()
@@ -437,6 +556,7 @@ def get_cms_events_service(
     mantra_id: Optional[UUID] = None,
     timer_id: Optional[UUID] = None,
     group_recitation_collection_id: Optional[UUID] = None,
+    event_format: Optional[EventFormat] = None,
     from_date: Optional[datetime] = None,
     to_date: Optional[datetime] = None,
     language: Optional[str] = None,
@@ -454,12 +574,15 @@ def get_cms_events_service(
         restrict_group_ids = member_group_ids
 
     return get_events_service(
-        group_id=group_id,
-        plan_id=plan_id,
-        accumulator_id=accumulator_id,
-        mantra_id=mantra_id,
-        timer_id=timer_id,
-        group_recitation_collection_id=group_recitation_collection_id,
+        content_filter=EventContentFilter(
+            group_id=group_id,
+            plan_id=plan_id,
+            accumulator_id=accumulator_id,
+            mantra_id=mantra_id,
+            timer_id=timer_id,
+            group_recitation_collection_id=group_recitation_collection_id,
+            event_format=event_format,
+        ),
         from_date=from_date,
         to_date=to_date,
         language=language,
@@ -498,7 +621,7 @@ def get_events_today_service(
 ) -> EventsResponse:
     from_date, to_date = get_day_bounds_in_timezone(timezone)
     return get_events_service(
-        group_id=group_id,
+        content_filter=EventContentFilter(group_id=group_id),
         from_date=from_date,
         to_date=to_date,
         language=language,
@@ -548,6 +671,16 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
 
     if request.recurrence:
         start_date, end_date = compute_initial_dates(request.recurrence)
+        # The recurrence rule only pins a day/month; the time-of-day rides
+        # along on start_date/end_date if the client sent them.
+        if request.start_date is not None:
+            start_date = combine_date_with_time_of_day(start_date.date(), request.start_date)
+        if request.end_date is not None:
+            end_date = combine_date_with_time_of_day(end_date.date(), request.end_date)
+        # A single-day occurrence (duration_days == 1) lands both times on the
+        # same calendar day, so an end time earlier than the start time would
+        # otherwise persist as an inverted range once expanded for reads.
+        _validate_date_range(start_date, end_date)
         is_recurring = True
         recurrence_frequency = request.recurrence.frequency.value
         recurrence_date_system = request.recurrence.date_system.value
@@ -576,7 +709,9 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
         location_id=request.location_id,
         start_date=start_date,
         end_date=end_date,
+        timezone=request.timezone,
         image_url=request.image_url,
+        event_format=request.event_format,
         is_recurring=is_recurring,
         recurrence_frequency=recurrence_frequency,
         recurrence_date_system=recurrence_date_system,
@@ -601,8 +736,143 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
         _validate_location(
             db=db, location_id=request.location_id, group_id=request.group_id
         )
-        saved = save_event(db, event, request.metadata, request.links)
+        def _schedule_reminders_after_flush(flushed_event: Event) -> None:
+            # Runs after the event is flushed (so its id/FK target exists)
+            # but before save_event's commit, so a reminder failure rolls
+            # back the event too instead of leaving it persisted without
+            # reminders.
+            if not is_recurring:
+                schedule_event_reminders(db, flushed_event.id, flushed_event.start_date)
+
+        saved = save_event(
+            db, event, request.metadata, request.links,
+            after_flush=_schedule_reminders_after_flush,
+        )
+        enqueue_event_notification(saved.id)
         return _event_to_dto(saved)
+
+
+def _resolve_recurrence_time_window(
+    event: Event,
+    request: UpdateEventRequest,
+    start_date: datetime,
+    end_date: datetime,
+) -> tuple[datetime, datetime]:
+    """Combine a freshly-resolved recurrence occurrence with its time-of-day.
+
+    The recurrence rule only pins a day/month; the time-of-day rides along
+    on start_date/end_date if the client sent them, falling back to the
+    event's own current time-of-day when it didn't — otherwise every
+    recurrence update would silently reset a timed event to midnight.
+    """
+    start_time_source = (
+        request.start_date if request.start_date is not None else event.start_date
+    )
+    end_time_source = (
+        request.end_date if request.end_date is not None else event.end_date
+    )
+    start_date = combine_date_with_time_of_day(start_date.date(), start_time_source)
+    end_date = combine_date_with_time_of_day(end_date.date(), end_time_source)
+
+    if request.start_date is not None or request.end_date is not None:
+        # The author supplied new time-of-day input, so an inverted window
+        # is theirs to fix — reject it outright.
+        _validate_date_range(start_date, end_date)
+    elif end_date < start_date:
+        # Both times were inherited from the existing template. A
+        # recurrence-only update (e.g. changing the day) that happens to
+        # inherit an already-invalid legacy window (a one-day occurrence
+        # whose end time preceded its start time, from before this
+        # validation existed) must still succeed — the author never touched
+        # the dates — so clamp instead of raising, matching how reads
+        # already guard against it via combine_occurrence_window.
+        end_date = start_date
+
+    return start_date, end_date
+
+
+def _apply_recurrence_update(event: Event, request: UpdateEventRequest) -> tuple[bool, bool]:
+    start_date, end_date = compute_initial_dates(request.recurrence)
+    event.start_date, event.end_date = _resolve_recurrence_time_window(
+        event, request, start_date, end_date
+    )
+    event.is_recurring = True
+    event.recurrence_frequency = request.recurrence.frequency.value
+    event.recurrence_date_system = request.recurrence.date_system.value
+    event.recurrence_calendar_type = request.recurrence.calendar_type
+    event.recurrence_month = request.recurrence.month
+    event.recurrence_day = request.recurrence.day
+    event.duration_days = request.recurrence.duration_days
+    # Reminders are out of scope for recurring events.
+    return True, False
+
+
+def _apply_date_only_update(event: Event, request: UpdateEventRequest) -> tuple[bool, bool]:
+    start_date = request.start_date if request.start_date is not None else event.start_date
+    end_date = request.end_date if request.end_date is not None else event.end_date
+    start_date_changed = (
+        request.start_date is not None and request.start_date != event.start_date
+    )
+    if request.start_date is not None or request.end_date is not None:
+        _validate_date_range(start_date, end_date)
+        if request.start_date is not None:
+            event.start_date = request.start_date
+        if request.end_date is not None:
+            event.end_date = request.end_date
+
+    should_reschedule_reminders = start_date_changed and not event.is_recurring
+    return False, should_reschedule_reminders
+
+
+def _apply_recurrence_or_dates(event: Event, request: UpdateEventRequest) -> tuple[bool, bool]:
+    """Applies recurrence/date changes to `event`.
+
+    Returns (should_cancel_reminders, should_reschedule_reminders).
+    """
+    if request.recurrence is not None:
+        return _apply_recurrence_update(event, request)
+    return _apply_date_only_update(event, request)
+
+
+def _apply_simple_field_updates(event: Event, request: UpdateEventRequest) -> None:
+    if request.timezone is not None:
+        event.timezone = request.timezone
+    if request.group_id is not None:
+        event.group_id = request.group_id
+    if request.plan_id is not None:
+        event.plan_id = request.plan_id
+    if request.accumulator_id is not None:
+        event.accumulator_id = request.accumulator_id
+    if request.mantra_id is not None:
+        event.mantra_id = request.mantra_id
+    if request.timer_id is not None:
+        event.timer_id = request.timer_id
+    if request.image_url is not None:
+        event.image_url = request.image_url
+    if "event_format" in request.model_fields_set:
+        event.event_format = request.event_format
+
+
+def _apply_relational_field_updates(db, event: Event, request: UpdateEventRequest) -> None:
+    if "group_recitation_collection_id" in request.model_fields_set:
+        _validate_group_recitation_collection(
+            db=db,
+            collection_id=request.group_recitation_collection_id,
+            group_id=event.group_id,
+        )
+        event.group_recitation_collection_id = request.group_recitation_collection_id
+    if "location_id" in request.model_fields_set:
+        _validate_location(
+            db=db, location_id=request.location_id, group_id=event.group_id
+        )
+        event.location_id = request.location_id
+
+
+def _sync_event_reminders(db, event: Event, should_cancel: bool, should_reschedule: bool) -> None:
+    if should_cancel:
+        cancel_event_reminders(db, event.id)
+    elif should_reschedule:
+        reschedule_event_reminders(db, event.id, event.start_date)
 
 
 def update_event_service(token: str, event_id: UUID, request: UpdateEventRequest) -> EventDTO:
@@ -618,53 +888,19 @@ def update_event_service(token: str, event_id: UUID, request: UpdateEventRequest
 
         _require_can_edit_event(db, event.group_id, current_author)
 
-        if request.recurrence is not None:
-            start_date, end_date = compute_initial_dates(request.recurrence)
-            event.start_date = start_date
-            event.end_date = end_date
-            event.is_recurring = True
-            event.recurrence_frequency = request.recurrence.frequency.value
-            event.recurrence_date_system = request.recurrence.date_system.value
-            event.recurrence_calendar_type = request.recurrence.calendar_type
-            event.recurrence_month = request.recurrence.month
-            event.recurrence_day = request.recurrence.day
-            event.duration_days = request.recurrence.duration_days
-        else:
-            start_date = request.start_date if request.start_date is not None else event.start_date
-            end_date = request.end_date if request.end_date is not None else event.end_date
-            if request.start_date is not None or request.end_date is not None:
-                _validate_date_range(start_date, end_date)
-                if request.start_date is not None:
-                    event.start_date = request.start_date
-                if request.end_date is not None:
-                    event.end_date = request.end_date
-
-        if request.group_id is not None:
-            event.group_id = request.group_id
-        if request.plan_id is not None:
-            event.plan_id = request.plan_id
-        if request.accumulator_id is not None:
-            event.accumulator_id = request.accumulator_id
-        if request.mantra_id is not None:
-            event.mantra_id = request.mantra_id
-        if request.timer_id is not None:
-            event.timer_id = request.timer_id
-        if "group_recitation_collection_id" in request.model_fields_set:
-            _validate_group_recitation_collection(
-                db=db,
-                collection_id=request.group_recitation_collection_id,
-                group_id=event.group_id,
-            )
-            event.group_recitation_collection_id = request.group_recitation_collection_id
-        if "location_id" in request.model_fields_set:
-            _validate_location(
-                db=db, location_id=request.location_id, group_id=event.group_id
-            )
-            event.location_id = request.location_id
-        if request.image_url is not None:
-            event.image_url = request.image_url
+        should_cancel_reminders, should_reschedule_reminders = _apply_recurrence_or_dates(
+            event, request
+        )
+        _apply_simple_field_updates(event, request)
+        _apply_relational_field_updates(db, event, request)
 
         event.updated_at = datetime.now(timezone.utc)
+
+        # Queued in the same session as the event write below (not committed
+        # here) so a later validation or persistence failure rolls back the
+        # reminder change along with the event, instead of leaving reminders
+        # stale/canceled against an unchanged event.
+        _sync_event_reminders(db, event, should_cancel_reminders, should_reschedule_reminders)
 
         saved = update_event(db, event, metadata_entries=request.metadata, link_entries=request.links)
         return _event_to_dto(saved)
@@ -707,11 +943,16 @@ def get_featured_events_service(
             result = resolve_current_or_next_occurrence(template, after=today)
             if result:
                 start_d, end_d, is_active = result
+                # Carry the template's own time-of-day onto the occurrence,
+                # instead of defaulting to midnight / end-of-day.
+                occurrence_start, occurrence_end = combine_occurrence_window(
+                    start_d, end_d, template.start_date, template.end_date
+                )
                 expanded_occurrences.append({
                     'event': template,
-                    'start_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
-                    'end_date': datetime(end_d.year, end_d.month, end_d.day, 23, 59, 59, tzinfo=timezone.utc),
-                    'occurrence_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
+                    'start_date': occurrence_start,
+                    'end_date': occurrence_end,
+                    'occurrence_date': occurrence_start,
                     'is_active': is_active,
                 })
         
@@ -745,7 +986,7 @@ def get_featured_events_service(
         # Apply limit
         paginated_items = all_event_items[:limit]
         
-        event_ids = list(set(item['event'].id for item in paginated_items))
+        event_ids = list({item['event'].id for item in paginated_items})
         counts_by_event = get_event_participant_counts(db=db, event_ids=event_ids)
         group_cards = _group_card_map(db, [item['event'].group_id for item in paginated_items])
 

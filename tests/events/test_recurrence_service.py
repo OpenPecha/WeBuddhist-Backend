@@ -46,7 +46,9 @@ class TestComputeInitialDates:
         
         assert start_date.month == 12
         assert start_date.day == 25
-        assert start_date >= datetime.now(timezone.utc)
+        # compute_initial_dates works in whole days, so an occurrence today is
+        # returned at 00:00 and is still valid. Compare dates, not timestamps.
+        assert start_date.date() >= date.today()
         assert end_date == start_date
 
     def test_gregorian_monthly_computes_next_occurrence(self):
@@ -60,7 +62,9 @@ class TestComputeInitialDates:
         start_date, end_date = compute_initial_dates(recurrence)
         
         assert start_date.day == 15
-        assert start_date >= datetime.now(timezone.utc)
+        # compute_initial_dates works in whole days, so an occurrence today is
+        # returned at 00:00 and is still valid. Compare dates, not timestamps.
+        assert start_date.date() >= date.today()
 
     def test_lunar_yearly_computes_next_occurrence(self):
         recurrence = RecurrenceInput(
@@ -74,7 +78,9 @@ class TestComputeInitialDates:
         
         start_date, end_date = compute_initial_dates(recurrence)
         
-        assert start_date >= datetime.now(timezone.utc)
+        # compute_initial_dates works in whole days, so an occurrence today is
+        # returned at 00:00 and is still valid. Compare dates, not timestamps.
+        assert start_date.date() >= date.today()
         assert end_date == start_date
 
     def test_lunar_monthly_computes_next_occurrence(self):
@@ -88,7 +94,9 @@ class TestComputeInitialDates:
         
         start_date, end_date = compute_initial_dates(recurrence)
         
-        assert start_date >= datetime.now(timezone.utc)
+        # compute_initial_dates works in whole days, so an occurrence today is
+        # returned at 00:00 and is still valid. Compare dates, not timestamps.
+        assert start_date.date() >= date.today()
 
     def test_multi_day_duration(self):
         recurrence = RecurrenceInput(

@@ -425,7 +425,7 @@ async def update_accumulator_service(token: str, accumulator_id: UUID, request: 
         if request.target_count is not None:
             accumulator.target_count = request.target_count
         if request.text_id is not None:
-            accumulator.text_id = request.text_id
+            accumulator.text_id = str(request.text_id)
         if request.mantra_id is not None:
             validate_mantra_exists(db, request.mantra_id)
             accumulator.mantra_id = request.mantra_id

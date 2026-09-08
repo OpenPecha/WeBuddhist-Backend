@@ -5,19 +5,15 @@ from scalar_fastapi import get_scalar_api_reference
 from pecha_api.openapi_config import configure_openapi_tag_groups
 from pecha_api.auth.auth_service import retrieve_client_info
 from pecha_api.middleware.request_observability import RequestObservabilityMiddleware
+from pecha_api.middleware.sentry import init_sentry
 
 from pecha_api.db.mongo_database import lifespan
 from pecha_api.auth import auth_views
 from pecha_api.sheets import sheets_views
-from pecha_api.collections import collections_views
-from pecha_api.terms import terms_views
-from pecha_api.texts import texts_views
 from pecha_api.texts import text_audio_views
-from pecha_api.topics import topics_views
 from pecha_api.users import users_views
 from pecha_api.texts.mappings import mappings_views
 from pecha_api.texts.segments import segments_views
-from pecha_api.texts.groups import groups_views
 from pecha_api.share import share_views
 from pecha_api.search import search_views
 from pecha_api.plans.auth import plan_auth_views
@@ -40,10 +36,12 @@ from pecha_api.plans.notifications import day_notification_views
 from pecha_api.plans.dashboard import dashboard_views as cms_dashboard_views
 from pecha_api.plans.analytics import analytics_views as cms_analytics_views
 from pecha_api.plans.groups import groups_views as author_groups_views
+from pecha_api.plans.groups import join_request_internal_views
 from pecha_api.recitations import recitations_view
 from pecha_api.user_follows import user_follow_views
 from pecha_api.plans.users.recitation import user_recitations_views
 from pecha_api.plans.users.recitation_collection import recitation_collection_views
+from pecha_api.plans.users.recitation_collection import recitation_collection_completion_views
 from pecha_api.group_recitation_collection import views as group_recitation_collection_views
 from pecha_api.group_recitation_collection import cms_views as cms_group_recitation_collection_views
 from pecha_api.group_recitation_collection import user_chant_completion_views
@@ -51,15 +49,16 @@ from pecha_api.group_posts import views as group_posts_views
 from pecha_api.group_posts import cms_views as cms_group_posts_views
 from pecha_api.group_posts import comment_views as group_post_comments_views
 from pecha_api.group_posts import viewer as group_posts_viewer
+from pecha_api.group_posts import notification_internal_views as group_post_notification_internal_views
 from pecha_api.author_group_feed import views as author_group_feed_views
 from pecha_api.group_posts import like_views as group_post_like_views
 from pecha_api.group_posts import comment_like_views as group_post_comment_like_views
 from pecha_api.chat import views as chat_views
+from pecha_api.chat.admin_views import cms_chat_reports_router
 from pecha_api.chat import viewer as chat_viewer_views
 from pecha_api.chat import internal_views as chat_notification_internal_views
 from pecha_api.bookmarks import bookmark_views
 from pecha_api.push_devices import push_device_views
-from pecha_api.text_uploader import text_uploader_views
 from pecha_api.cataloger import cataloger_views
 from pecha_api.text_uploader.text_metadata import text_metadata_views
 from pecha_api.text_uploader.collections import uploader_collections_views
@@ -73,6 +72,8 @@ from pecha_api.notification import notification_views as cms_notification_views
 from pecha_api.verse_of_day import verse_of_day_views
 from pecha_api.verse_of_day import verse_of_day_notification_internal_views
 from pecha_api.calendar import calendar_views
+from pecha_api.poems import views as poems_views
+from pecha_api.poems import cms_views as cms_poems_views
 from pecha_api.timers import timer_router
 from pecha_api.accumulator import accumulator_router, accumulator_cms_router
 from pecha_api.group_accumulator import group_accumulator_router, group_accumulator_cms_router
@@ -80,9 +81,11 @@ from pecha_api.daily_log import daily_log_views
 from pecha_api.mantra import mantra_views
 from pecha_api.mantra.mantra_count_views import user_mantra_count_router
 from pecha_api.events import events_router, cms_events_router, cms_locations_router
+from pecha_api.events import notification_internal_views as event_notification_internal_views
 from pecha_api.traditions import tradition_views
 from pecha_api.languages import language_views
 from pecha_api.plans.admin.admin_views import cms_admin_router
+from pecha_api.id_remap.id_remap_views import id_remap_router
 from pecha_api.region_restrictions.region_restriction_views import cms_china_restrictions_router
 from pecha_api.plans.transfers.transfer_views import (
     cms_transfers_router,
@@ -91,6 +94,8 @@ from pecha_api.plans.transfers.transfer_views import (
     series_transfers_router,
 )
 import uvicorn
+
+init_sentry()
 
 api = FastAPI(
     title="Pecha API",
@@ -103,13 +108,8 @@ api = FastAPI(
 )
 api.include_router(auth_views.auth_router)
 api.include_router(sheets_views.sheets_router)
-api.include_router(collections_views.collections_router)
-api.include_router(terms_views.terms_router)
-api.include_router(texts_views.text_router)
 api.include_router(text_audio_views.text_audio_router)
-api.include_router(groups_views.group_router)
 api.include_router(segments_views.segment_router)
-api.include_router(topics_views.topics_router)
 api.include_router(users_views.user_router)
 api.include_router(mappings_views.mapping_router)
 api.include_router(search_views.search_router)
@@ -124,7 +124,9 @@ api.include_router(cms_analytics_views.analytics_router)
 api.include_router(author_groups_views.cms_groups_router)
 api.include_router(cms_notification_views.cms_notifications_router)
 api.include_router(cms_admin_router)
+api.include_router(id_remap_router)
 api.include_router(cms_china_restrictions_router)
+api.include_router(cms_chat_reports_router)
 api.include_router(cms_transfers_router)
 api.include_router(group_transfers_router)
 api.include_router(plan_transfers_router)
@@ -138,6 +140,7 @@ api.include_router(author_group_feed_views.author_group_feed_router)
 api.include_router(author_groups_views.public_groups_router)
 api.include_router(author_groups_views.user_groups_router)
 api.include_router(author_groups_views.user_joined_groups_router)
+api.include_router(author_groups_views.user_permission_router)
 api.include_router(user_plans_views.user_progress_router)
 api.include_router(plan_items_views.items_router)
 api.include_router(plan_tasks_views.plans_router)
@@ -151,7 +154,9 @@ api.include_router(recitations_view.recitation_router)
 api.include_router(user_follow_views.user_follow_router)
 api.include_router(user_recitations_views.user_recitation_router)
 api.include_router(recitation_collection_views.recitation_collection_router)
+api.include_router(recitation_collection_completion_views.recitation_collection_completion_router)
 api.include_router(group_recitation_collection_views.public_group_recitation_collection_router)
+api.include_router(group_recitation_collection_views.public_group_recitation_collection_detail_router)
 api.include_router(cms_group_recitation_collection_views.cms_group_recitation_collection_router)
 api.include_router(user_chant_completion_views.user_chant_completion_router)
 api.include_router(group_posts_views.public_group_posts_list_router)
@@ -164,11 +169,12 @@ api.include_router(group_post_comment_like_views.public_group_post_comment_likes
 api.include_router(chat_views.chat_router)
 api.include_router(chat_viewer_views.chat_viewer_router)
 api.include_router(chat_notification_internal_views.internal_chat_notifications_router)
+api.include_router(join_request_internal_views.internal_join_request_notifications_router)
+api.include_router(group_post_notification_internal_views.internal_group_post_notifications_router)
 api.include_router(group_posts_viewer.viewer_router)
 api.include_router(bookmark_views.bookmark_router)
 api.include_router(push_device_views.push_device_router)
 api.include_router(push_device_views.cms_push_device_router)
-api.include_router(text_uploader_views.text_uploader_router)
 api.include_router(cataloger_views.cataloger_router)
 api.include_router(text_metadata_views.text_metadata_router)
 api.include_router(uploader_collections_views.text_uploader_collections_router)
@@ -183,6 +189,8 @@ api.include_router(verse_of_day_views.verse_of_day_router)
 api.include_router(verse_of_day_views.cms_verse_of_day_router)
 api.include_router(verse_of_day_notification_internal_views.internal_verse_of_day_notifications_router)
 api.include_router(calendar_views.calendar_router)
+api.include_router(poems_views.poems_router)
+api.include_router(cms_poems_views.cms_poems_router)
 api.include_router(timer_router)
 api.include_router(accumulator_router)
 api.include_router(accumulator_cms_router)
@@ -194,6 +202,7 @@ api.include_router(mantra_views.cms_mantra_router)
 api.include_router(user_mantra_count_router)
 api.include_router(events_router)
 api.include_router(cms_events_router)
+api.include_router(event_notification_internal_views.internal_event_notifications_router)
 api.include_router(cms_locations_router)
 api.include_router(tradition_views.tradition_router)
 api.include_router(tradition_views.user_tradition_router)

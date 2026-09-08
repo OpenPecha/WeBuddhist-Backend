@@ -1,17 +1,20 @@
 import logging
+import uuid as uuid_lib
 from uuid import UUID
 from datetime import datetime
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
 from starlette import status
 
 from pecha_api.db.database import SessionLocal
 from pecha_api.config import get
 from pecha_api.users.users_service import validate_and_extract_user_details
-from pecha_api.texts.texts_repository import get_texts_by_ids
-from pecha_api.texts.texts_utils import TextUtils
+from pecha_api.texts.texts_openpecha_service import get_texts_by_edition_or_text_ids
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
+from pecha_api.utils import Utils
 from pecha_api.plans.auth.plan_auth_models import ResponseError
-from pecha_api.plans.response_message import NOT_FOUND
+from pecha_api.plans.media.media_response_models import PlanUploadResponse
+from pecha_api.plans.media.media_services import prepare_image_upload, validate_file
+from pecha_api.plans.response_message import IMAGE_UPLOAD_SUCCESS, NOT_FOUND
 
 from pecha_api.plans.users.recitation_collection.recitation_collection_models import (
     RecitationCollection,
@@ -22,10 +25,13 @@ from pecha_api.plans.users.recitation_collection.recitation_collection_repositor
     get_collection_item_counts,
     get_collection_by_id,
     get_collection_items,
+    get_collection_item_by_id,
     save_collection,
+    update_collection,
     get_max_display_order_for_collection,
     save_collection_items,
-    delete_collection
+    delete_collection,
+    soft_delete_collection_item
 )
 from pecha_api.plans.users.recitation_collection.recitation_collection_response_models import (
     RecitationCollectionDTO,
@@ -34,6 +40,7 @@ from pecha_api.plans.users.recitation_collection.recitation_collection_response_
     RecitationCollectionsResponse,
     CreateCollectionRequest,
     CreateCollectionResponse,
+    UpdateCollectionRequest,
     AddItemsRequest,
     AddItemsResponse
 )
@@ -121,7 +128,7 @@ async def get_collection_detail_service(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=ResponseError(error=NOT_FOUND, message=f"Collection with ID {collection_id} not found").model_dump()
             )
-        
+
         items = get_collection_items(db=db, collection_id=collection_id)
         
         if not items:
@@ -135,8 +142,8 @@ async def get_collection_detail_service(
             )
         
         text_ids = [str(item.text_id) for item in items]
-        texts_dict = await get_texts_by_ids(text_ids=text_ids)
-        
+        texts_dict = await get_texts_by_edition_or_text_ids(text_ids)
+
         items_dto = []
         for item in items:
             text_id_str = str(item.text_id)
@@ -148,11 +155,11 @@ async def get_collection_detail_service(
                         text_id=item.text_id,
                         title=text.title,
                         language=text.language,
-                        type=text.type,
+                        type=None,
                         display_order=item.display_order
                     )
                 )
-        
+
         return RecitationCollectionDetailDTO(
             id=collection.id,
             name=collection.name,
@@ -176,7 +183,7 @@ async def create_collection_service(
         new_collection = RecitationCollection(
             user_id=current_user.id,
             name=request.name,
-            img_url=request.img_url,
+            img_url=Utils.extract_s3_key(presigned_url=request.img_url),
             created_at=now,
             updated_at=now
         )
@@ -192,6 +199,69 @@ async def create_collection_service(
         )
 
 
+async def update_collection_service(
+    token: str,
+    collection_id: UUID,
+    request: UpdateCollectionRequest
+) -> CreateCollectionResponse:
+
+    current_user = validate_and_extract_user_details(token=token)
+
+    with SessionLocal() as db:
+        collection = get_collection_by_id(
+            db=db,
+            collection_id=collection_id,
+            user_id=current_user.id
+        )
+        validate_collection_exists(collection, collection_id)
+
+        if request.name is not None:
+            collection.name = request.name
+        if request.img_url is not None:
+            collection.img_url = Utils.extract_s3_key(presigned_url=request.img_url)
+        collection.updated_at = datetime.utcnow().isoformat()
+
+        updated_collection = update_collection(db=db, collection=collection)
+
+        return CreateCollectionResponse(
+            id=updated_collection.id,
+            name=updated_collection.name,
+            img_url=_generate_presigned_url(updated_collection.img_url),
+            created_at=updated_collection.created_at,
+            updated_at=updated_collection.updated_at
+        )
+
+
+def upload_collection_image_service(
+    token: str,
+    file: UploadFile
+) -> PlanUploadResponse:
+    """Upload an image for a user's recitation collection and return its URL.
+
+    The returned ``key`` is what callers pass back as ``img_url`` when
+    creating or updating a collection.
+    """
+    current_user = validate_and_extract_user_details(token=token)
+
+    validate_file(file)
+
+    unique_id = str(uuid_lib.uuid4())
+    path = "images/recitation_collection_images"
+    image_path_full = f"{path}/{current_user.id}/{unique_id}"
+
+    image_url_model, original_key = prepare_image_upload(
+        file=file,
+        image_path_full=image_path_full,
+    )
+
+    return PlanUploadResponse(
+        image=image_url_model,
+        key=original_key,
+        path=image_path_full,
+        message=IMAGE_UPLOAD_SUCCESS,
+    )
+
+
 def validate_collection_exists(collection, collection_id: UUID):
     if not collection:
         raise HTTPException(
@@ -200,20 +270,15 @@ def validate_collection_exists(collection, collection_id: UUID):
         )
 
 
-async def validate_texts_exist(text_ids: list[UUID]):
-    for text_id in text_ids:
-        await TextUtils.validate_text_exists(text_id=str(text_id))
-
-
 def create_collection_items(
     collection_id: UUID,
-    text_ids: list[UUID],
+    text_ids: list[str],
     start_order: int
 ) -> list[RecitationCollectionItem]:
     return [
         RecitationCollectionItem(
             recitation_collection_id=collection_id,
-            text_id=text_id,
+            text_id=str(text_id),
             display_order=start_order + idx
         )
         for idx, text_id in enumerate(text_ids)
@@ -224,8 +289,8 @@ async def build_items_dto(
     saved_items: list[RecitationCollectionItem]
 ) -> list[RecitationCollectionItemDTO]:
     text_ids_str = [str(item.text_id) for item in saved_items]
-    texts_dict = await get_texts_by_ids(text_ids=text_ids_str)
-    
+    texts_dict = await get_texts_by_edition_or_text_ids(text_ids_str)
+
     items_dto = []
     for item in saved_items:
         text_id_str = str(item.text_id)
@@ -237,7 +302,7 @@ async def build_items_dto(
                     text_id=item.text_id,
                     title=text.title,
                     language=text.language,
-                    type=text.type,
+                    type=None,
                     display_order=item.display_order
                 )
             )
@@ -259,9 +324,7 @@ async def add_items_to_collection_service(
             user_id=current_user.id
         )
         validate_collection_exists(collection, collection_id)
-        
-        await validate_texts_exist(request.text_ids)
-        
+
         max_order = get_max_display_order_for_collection(db=db, collection_id=collection_id)
         start_order = (max_order or 0) + 1
         
@@ -295,3 +358,34 @@ async def delete_collection_service(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=ResponseError(error=NOT_FOUND, message=f"Collection with ID {collection_id} not found").model_dump()
             )
+
+
+async def delete_collection_item_service(
+    token: str,
+    collection_id: UUID,
+    item_id: UUID
+) -> None:
+
+    current_user = validate_and_extract_user_details(token=token)
+
+    with SessionLocal() as db:
+        collection = get_collection_by_id(
+            db=db,
+            collection_id=collection_id,
+            user_id=current_user.id
+        )
+        validate_collection_exists(collection, collection_id)
+
+        item = get_collection_item_by_id(
+            db=db,
+            item_id=item_id,
+            collection_id=collection_id
+        )
+
+        if not item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(error=NOT_FOUND, message=f"Item with ID {item_id} not found").model_dump()
+            )
+
+        soft_delete_collection_item(db=db, item=item)

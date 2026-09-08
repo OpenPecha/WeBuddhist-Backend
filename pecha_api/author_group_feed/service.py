@@ -12,7 +12,10 @@ from pecha_api.events.event_participant_repository import (
 )
 from pecha_api.events.event_repository import get_events, get_recurring_events
 from pecha_api.events.event_service import _event_to_dto
-from pecha_api.events.recurrence_service import resolve_current_or_next_occurrence
+from pecha_api.events.recurrence_service import (
+    resolve_current_or_next_occurrence,
+    combine_occurrence_window,
+)
 from pecha_api.group_posts.enums import GroupPostStatus
 from pecha_api.group_posts.repository import get_posts_for_group_ids
 from pecha_api.group_posts.service import build_post_dtos
@@ -83,19 +86,20 @@ def _resolve_feed_group_ids(
     should_include_unfollowed: bool,
     db: Session,
 ) -> Tuple[List[UUID], Set[UUID]]:
-    """Return (group_ids_to_query, joined_id_set)."""
-    public_joined = [
-        group.id
-        for group in get_groups_by_ids(db=db, group_ids=joined_ids)
-        if group.is_public
+    """Return (group_ids_to_query, joined_id_set).
+
+    Joined groups count regardless of visibility; unjoined groups only when
+    they are public."""
+    resolved_joined = [
+        group.id for group in get_groups_by_ids(db=db, group_ids=joined_ids)
     ]
-    joined_set = set(public_joined)
+    joined_set = set(resolved_joined)
 
     if not should_include_unfollowed:
-        return public_joined, joined_set
+        return resolved_joined, joined_set
 
     public_ids = get_public_group_ids(db=db)
-    return public_ids, joined_set
+    return list({*public_ids, *resolved_joined}), joined_set
 
 
 def _build_group_card_map(
@@ -184,10 +188,15 @@ def _get_author_group_feed(
         result = resolve_current_or_next_occurrence(template, after=today)
         if result:
             start_d, end_d, is_active = result
+            # Carry the template's own time-of-day onto the occurrence,
+            # instead of defaulting to midnight / end-of-day.
+            occurrence_start, occurrence_end = combine_occurrence_window(
+                start_d, end_d, template.start_date, template.end_date
+            )
             expanded_recurring.append({
                 'event': template,
-                'start_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
-                'end_date': datetime(end_d.year, end_d.month, end_d.day, 23, 59, 59, tzinfo=timezone.utc),
+                'start_date': occurrence_start,
+                'end_date': occurrence_end,
                 'is_active': is_active,
             })
     

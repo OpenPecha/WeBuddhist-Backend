@@ -18,6 +18,7 @@ from pecha_api.plans.shared.permissions import (
 
 from pecha_api.group_posts.enums import GroupPostStatus
 from pecha_api.group_posts.models import GroupPost, GroupPostLink, GroupPostMedia
+from pecha_api.group_posts.notification_dispatch_service import enqueue_group_post_notification
 from pecha_api.group_posts.repository import (
     create_post,
     get_group_posts,
@@ -212,6 +213,8 @@ def cms_create_group_post_service(
         )
 
         created = create_post(db=db, post=post)
+        if created.status == GroupPostStatus.PUBLISHED:
+            enqueue_group_post_notification(created.id)
         return build_post_dtos(db, [created])[0]
 
 

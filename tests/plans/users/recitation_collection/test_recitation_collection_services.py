@@ -2,14 +2,18 @@ import pytest
 from unittest.mock import patch, MagicMock
 from uuid import uuid4
 from fastapi import HTTPException
+from pydantic import ValidationError
 from starlette import status
 
 from pecha_api.plans.users.recitation_collection.recitation_collection_service import (
     get_user_collections_service,
     get_collection_detail_service,
     create_collection_service,
+    update_collection_service,
+    upload_collection_image_service,
     add_items_to_collection_service,
     delete_collection_service,
+    delete_collection_item_service,
     _generate_presigned_url
 )
 from pecha_api.plans.users.recitation_collection.recitation_collection_response_models import (
@@ -19,9 +23,11 @@ from pecha_api.plans.users.recitation_collection.recitation_collection_response_
     RecitationCollectionItemDTO,
     CreateCollectionRequest,
     CreateCollectionResponse,
+    UpdateCollectionRequest,
     AddItemsRequest,
     AddItemsResponse
 )
+from pecha_api.plans.media.media_response_models import ImageUrlModel, PlanUploadResponse
 
 
 class MockUser:
@@ -43,7 +49,7 @@ class MockCollectionItem:
     def __init__(self, id=None, recitation_collection_id=None, text_id=None, display_order=1):
         self.id = id or uuid4()
         self.recitation_collection_id = recitation_collection_id or uuid4()
-        self.text_id = text_id or uuid4()
+        self.text_id = str(text_id or uuid4())
         self.display_order = display_order
 
 
@@ -212,7 +218,7 @@ class TestGetCollectionDetailService:
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_items')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_ids')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_edition_or_text_ids')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service._generate_presigned_url')
     @pytest.mark.asyncio
     async def test_get_collection_detail_success(
@@ -341,7 +347,7 @@ class TestGetCollectionDetailService:
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_items')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_ids')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_edition_or_text_ids')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service._generate_presigned_url')
     @pytest.mark.asyncio
     async def test_get_collection_detail_filters_missing_texts(
@@ -548,23 +554,344 @@ class TestCreateCollectionService:
 
         assert result.name == special_name
 
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.save_collection')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service._generate_presigned_url')
+    @pytest.mark.asyncio
+    async def test_create_collection_stores_key_when_full_url_given(
+        self,
+        mock_presigned_url,
+        mock_save_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Passing a full presigned URL as img_url should store only the S3 key"""
+        user_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        def _save_with_id(db, collection):
+            collection.id = uuid4()
+            return collection
+        mock_save_collection.side_effect = _save_with_id
+        mock_presigned_url.return_value = "https://presigned-url.com/collections/test.jpg"
+
+        full_url = "https://bucket.s3.amazonaws.com/images/collections/test.jpg?X-Amz-Signature=abc123"
+        request = CreateCollectionRequest(name="Morning Prayers", img_url=full_url)
+        await create_collection_service(token="valid_token", request=request)
+
+        saved_collection = mock_save_collection.call_args.kwargs["collection"]
+        assert saved_collection.img_url == "images/collections/test.jpg"
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.save_collection')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service._generate_presigned_url')
+    @pytest.mark.asyncio
+    async def test_create_collection_stores_key_when_plain_key_given(
+        self,
+        mock_presigned_url,
+        mock_save_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Passing a plain S3 key as img_url should store it unchanged"""
+        user_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        def _save_with_id(db, collection):
+            collection.id = uuid4()
+            return collection
+        mock_save_collection.side_effect = _save_with_id
+        mock_presigned_url.return_value = "https://presigned-url.com/collections/test.jpg"
+
+        request = CreateCollectionRequest(name="Morning Prayers", img_url="images/collections/test.jpg")
+        await create_collection_service(token="valid_token", request=request)
+
+        saved_collection = mock_save_collection.call_args.kwargs["collection"]
+        assert saved_collection.img_url == "images/collections/test.jpg"
+
+    def test_create_collection_request_rejects_extra_fields(self):
+        """Only name and img_url should be accepted on create"""
+        with pytest.raises(ValidationError):
+            CreateCollectionRequest(
+                name="Morning Prayers",
+                img_url="images/test.jpg",
+                user_id=str(uuid4()),
+            )
+
+
+class TestUpdateCollectionService:
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.update_collection')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service._generate_presigned_url')
+    @pytest.mark.asyncio
+    async def test_update_collection_success(
+        self,
+        mock_presigned_url,
+        mock_update_collection,
+        mock_get_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Test successful collection update"""
+        user_id = uuid4()
+        collection_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        collection = MockCollection(
+            id=collection_id,
+            user_id=user_id,
+            name="Old Name",
+            img_url="images/old.jpg",
+        )
+        mock_get_collection.return_value = collection
+        mock_update_collection.return_value = collection
+        mock_presigned_url.return_value = "https://presigned-url.com/new.jpg"
+
+        request = UpdateCollectionRequest(name="New Name", img_url="images/new.jpg")
+        result = await update_collection_service(
+            token="valid_token",
+            collection_id=collection_id,
+            request=request,
+        )
+
+        assert isinstance(result, CreateCollectionResponse)
+        assert result.name == "New Name"
+        assert collection.name == "New Name"
+        assert collection.img_url == "images/new.jpg"
+        mock_update_collection.assert_called_once_with(db=mock_db, collection=collection)
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.update_collection')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service._generate_presigned_url')
+    @pytest.mark.asyncio
+    async def test_update_collection_partial_name_only(
+        self,
+        mock_presigned_url,
+        mock_update_collection,
+        mock_get_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Test updating only the name leaves img_url untouched"""
+        user_id = uuid4()
+        collection_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        collection = MockCollection(
+            id=collection_id,
+            user_id=user_id,
+            name="Old Name",
+            img_url="images/unchanged.jpg",
+        )
+        mock_get_collection.return_value = collection
+        mock_update_collection.return_value = collection
+        mock_presigned_url.return_value = "https://presigned-url.com/unchanged.jpg"
+
+        request = UpdateCollectionRequest(name="New Name")
+        result = await update_collection_service(
+            token="valid_token",
+            collection_id=collection_id,
+            request=request,
+        )
+
+        assert result.name == "New Name"
+        assert collection.img_url == "images/unchanged.jpg"
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
+    @pytest.mark.asyncio
+    async def test_update_collection_not_found(
+        self,
+        mock_get_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Test updating a non-existent collection"""
+        user_id = uuid4()
+        collection_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        mock_get_collection.return_value = None
+
+        request = UpdateCollectionRequest(name="New Name")
+
+        with pytest.raises(HTTPException) as exc_info:
+            await update_collection_service(
+                token="valid_token",
+                collection_id=collection_id,
+                request=request,
+            )
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @pytest.mark.asyncio
+    async def test_update_collection_invalid_token(self, mock_validate):
+        """Test updating a collection with an invalid token"""
+        mock_validate.side_effect = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+
+        request = UpdateCollectionRequest(name="New Name")
+
+        with pytest.raises(HTTPException) as exc_info:
+            await update_collection_service(
+                token="invalid_token",
+                collection_id=uuid4(),
+                request=request,
+            )
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.update_collection')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service._generate_presigned_url')
+    @pytest.mark.asyncio
+    async def test_update_collection_stores_key_when_full_url_given(
+        self,
+        mock_presigned_url,
+        mock_update_collection,
+        mock_get_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Passing a full presigned URL as img_url should store only the S3 key"""
+        user_id = uuid4()
+        collection_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        collection = MockCollection(
+            id=collection_id,
+            user_id=user_id,
+            name="Old Name",
+            img_url="images/old.jpg",
+        )
+        mock_get_collection.return_value = collection
+        mock_update_collection.side_effect = lambda db, collection: collection
+        mock_presigned_url.return_value = "https://presigned-url.com/new.jpg"
+
+        full_url = "https://bucket.s3.amazonaws.com/images/collections/new.jpg?X-Amz-Signature=abc123"
+        request = UpdateCollectionRequest(img_url=full_url)
+        await update_collection_service(
+            token="valid_token",
+            collection_id=collection_id,
+            request=request,
+        )
+
+        assert collection.img_url == "images/collections/new.jpg"
+
+    def test_update_collection_request_rejects_extra_fields(self):
+        """Only name and img_url should be accepted on update"""
+        with pytest.raises(ValidationError):
+            UpdateCollectionRequest(
+                name="New Name",
+                id=str(uuid4()),
+            )
+
+
+class TestUploadCollectionImageService:
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_file')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.prepare_image_upload')
+    def test_upload_success(
+        self,
+        mock_prepare_upload,
+        mock_validate_file,
+        mock_validate,
+    ):
+        """Test successful image upload for a user's recitation collection"""
+        user_id = uuid4()
+        mock_validate.return_value = MockUser(id=user_id)
+
+        image_url_model = ImageUrlModel(
+            thumbnail="https://signed/thumb",
+            medium="https://signed/medium",
+            original="https://signed/original",
+        )
+        mock_prepare_upload.return_value = (
+            image_url_model,
+            "images/recitation_collection_images/key",
+        )
+        mock_file = MagicMock()
+
+        result = upload_collection_image_service(token="valid_token", file=mock_file)
+
+        assert isinstance(result, PlanUploadResponse)
+        assert result.key == "images/recitation_collection_images/key"
+        assert result.image.thumbnail == "https://signed/thumb"
+        mock_validate.assert_called_once_with(token="valid_token")
+        mock_validate_file.assert_called_once_with(mock_file)
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    def test_upload_invalid_token(self, mock_validate):
+        """Test uploading an image with an invalid token"""
+        mock_validate.side_effect = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            upload_collection_image_service(token="invalid_token", file=MagicMock())
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
 
 class TestAddItemsToCollectionService:
 
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.TextUtils.validate_text_exists')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_max_display_order_for_collection')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.save_collection_items')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_ids')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_edition_or_text_ids')
     @pytest.mark.asyncio
     async def test_add_items_single_success(
         self,
         mock_get_texts,
         mock_save_items,
         mock_max_order,
-        mock_validate_text,
         mock_get_collection,
         mock_session,
         mock_validate
@@ -583,7 +910,6 @@ class TestAddItemsToCollectionService:
         mock_collection = MockCollection(id=collection_id, user_id=user_id)
         mock_get_collection.return_value = mock_collection
 
-        mock_validate_text.return_value = None
         mock_max_order.return_value = 0
 
         saved_item = MockCollectionItem(
@@ -597,7 +923,7 @@ class TestAddItemsToCollectionService:
             str(text_id): MockTextDTO(title="Heart Sutra", language="bo", type="root_text")
         }
 
-        request = AddItemsRequest(text_ids=[text_id])
+        request = AddItemsRequest(text_ids=[str(text_id)])
         result = await add_items_to_collection_service(
             token="valid_token",
             collection_id=collection_id,
@@ -617,17 +943,15 @@ class TestAddItemsToCollectionService:
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.TextUtils.validate_text_exists')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_max_display_order_for_collection')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.save_collection_items')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_ids')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_edition_or_text_ids')
     @pytest.mark.asyncio
     async def test_add_items_multiple_success(
         self,
         mock_get_texts,
         mock_save_items,
         mock_max_order,
-        mock_validate_text,
         mock_get_collection,
         mock_session,
         mock_validate
@@ -646,7 +970,6 @@ class TestAddItemsToCollectionService:
         mock_collection = MockCollection(id=collection_id, user_id=user_id)
         mock_get_collection.return_value = mock_collection
 
-        mock_validate_text.return_value = None
         mock_max_order.return_value = 0
 
         saved_items = [
@@ -661,7 +984,7 @@ class TestAddItemsToCollectionService:
             str(text_ids[2]): MockTextDTO(title="Text 3", language="sa", type="commentary")
         }
 
-        request = AddItemsRequest(text_ids=text_ids)
+        request = AddItemsRequest(text_ids=[str(t) for t in text_ids])
         result = await add_items_to_collection_service(
             token="valid_token",
             collection_id=collection_id,
@@ -696,49 +1019,7 @@ class TestAddItemsToCollectionService:
 
         mock_get_collection.return_value = None
 
-        request = AddItemsRequest(text_ids=[text_id])
-
-        with pytest.raises(HTTPException) as exc_info:
-            await add_items_to_collection_service(
-                token="valid_token",
-                collection_id=collection_id,
-                request=request
-            )
-
-        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
-
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.TextUtils.validate_text_exists')
-    @pytest.mark.asyncio
-    async def test_add_items_text_not_found(
-        self,
-        mock_validate_text,
-        mock_get_collection,
-        mock_session,
-        mock_validate
-    ):
-        """Test adding non-existent text to collection"""
-        user_id = uuid4()
-        collection_id = uuid4()
-        text_id = uuid4()
-
-        mock_validate.return_value = MockUser(id=user_id)
-
-        mock_db = MagicMock()
-        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
-        mock_session.return_value.__exit__ = MagicMock(return_value=False)
-
-        mock_collection = MockCollection(id=collection_id, user_id=user_id)
-        mock_get_collection.return_value = mock_collection
-
-        mock_validate_text.side_effect = HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": "NOT_FOUND", "message": f"Text with ID {text_id} not found"}
-        )
-
-        request = AddItemsRequest(text_ids=[text_id])
+        request = AddItemsRequest(text_ids=[str(text_id)])
 
         with pytest.raises(HTTPException) as exc_info:
             await add_items_to_collection_service(
@@ -761,7 +1042,7 @@ class TestAddItemsToCollectionService:
             detail="Invalid authentication credentials"
         )
 
-        request = AddItemsRequest(text_ids=[text_id])
+        request = AddItemsRequest(text_ids=[str(text_id)])
 
         with pytest.raises(HTTPException) as exc_info:
             await add_items_to_collection_service(
@@ -775,17 +1056,15 @@ class TestAddItemsToCollectionService:
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.TextUtils.validate_text_exists')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_max_display_order_for_collection')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.save_collection_items')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_ids')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_edition_or_text_ids')
     @pytest.mark.asyncio
     async def test_add_items_display_order_continuation(
         self,
         mock_get_texts,
         mock_save_items,
         mock_max_order,
-        mock_validate_text,
         mock_get_collection,
         mock_session,
         mock_validate
@@ -804,7 +1083,6 @@ class TestAddItemsToCollectionService:
         mock_collection = MockCollection(id=collection_id, user_id=user_id)
         mock_get_collection.return_value = mock_collection
 
-        mock_validate_text.return_value = None
         mock_max_order.return_value = 10
 
         saved_items = [
@@ -818,7 +1096,7 @@ class TestAddItemsToCollectionService:
             str(text_ids[1]): MockTextDTO(title="Text 2")
         }
 
-        request = AddItemsRequest(text_ids=text_ids)
+        request = AddItemsRequest(text_ids=[str(t) for t in text_ids])
         result = await add_items_to_collection_service(
             token="valid_token",
             collection_id=collection_id,
@@ -831,7 +1109,6 @@ class TestAddItemsToCollectionService:
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.TextUtils.validate_text_exists')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_max_display_order_for_collection')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.save_collection_items')
     @pytest.mark.asyncio
@@ -839,7 +1116,6 @@ class TestAddItemsToCollectionService:
         self,
         mock_save_items,
         mock_max_order,
-        mock_validate_text,
         mock_get_collection,
         mock_session,
         mock_validate
@@ -858,7 +1134,6 @@ class TestAddItemsToCollectionService:
         mock_collection = MockCollection(id=collection_id, user_id=user_id)
         mock_get_collection.return_value = mock_collection
 
-        mock_validate_text.return_value = None
         mock_max_order.return_value = 5
 
         mock_save_items.side_effect = HTTPException(
@@ -866,7 +1141,7 @@ class TestAddItemsToCollectionService:
             detail={"error": "BAD_REQUEST", "message": "duplicate key value violates unique constraint"}
         )
 
-        request = AddItemsRequest(text_ids=[text_id])
+        request = AddItemsRequest(text_ids=[str(text_id)])
 
         with pytest.raises(HTTPException) as exc_info:
             await add_items_to_collection_service(
@@ -1050,3 +1325,184 @@ class TestDeleteCollectionService:
 
         assert result is None
         mock_delete_collection.assert_called_once()
+
+
+class TestDeleteCollectionItemService:
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_item_by_id')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.soft_delete_collection_item')
+    @pytest.mark.asyncio
+    async def test_delete_collection_item_success(
+        self,
+        mock_soft_delete_item,
+        mock_get_item,
+        mock_get_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Test successful item deletion soft-deletes rather than removing the row"""
+        user_id = uuid4()
+        collection_id = uuid4()
+        item_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        mock_get_collection.return_value = MockCollection(id=collection_id, user_id=user_id)
+        item = MockCollectionItem(id=item_id, recitation_collection_id=collection_id)
+        mock_get_item.return_value = item
+
+        result = await delete_collection_item_service(
+            token="valid_token",
+            collection_id=collection_id,
+            item_id=item_id
+        )
+
+        assert result is None
+
+        mock_validate.assert_called_once_with(token="valid_token")
+        mock_get_item.assert_called_once_with(
+            db=mock_db,
+            item_id=item_id,
+            collection_id=collection_id
+        )
+        mock_soft_delete_item.assert_called_once_with(db=mock_db, item=item)
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
+    @pytest.mark.asyncio
+    async def test_delete_collection_item_collection_not_found(
+        self,
+        mock_get_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Test deleting item from a non-existent collection"""
+        user_id = uuid4()
+        collection_id = uuid4()
+        item_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        mock_get_collection.return_value = None
+
+        with pytest.raises(HTTPException) as exc_info:
+            await delete_collection_item_service(
+                token="valid_token",
+                collection_id=collection_id,
+                item_id=item_id
+            )
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_item_by_id')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.soft_delete_collection_item')
+    @pytest.mark.asyncio
+    async def test_delete_collection_item_not_found(
+        self,
+        mock_soft_delete_item,
+        mock_get_item,
+        mock_get_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Test deleting a non-existent (or already soft-deleted) item from an existing collection"""
+        user_id = uuid4()
+        collection_id = uuid4()
+        item_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        mock_get_collection.return_value = MockCollection(id=collection_id, user_id=user_id)
+        mock_get_item.return_value = None
+
+        with pytest.raises(HTTPException) as exc_info:
+            await delete_collection_item_service(
+                token="valid_token",
+                collection_id=collection_id,
+                item_id=item_id
+            )
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+        assert "not found" in str(exc_info.value.detail).lower()
+        mock_soft_delete_item.assert_not_called()
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @pytest.mark.asyncio
+    async def test_delete_collection_item_invalid_token(self, mock_validate):
+        """Test deleting item with invalid token"""
+        collection_id = uuid4()
+        item_id = uuid4()
+
+        mock_validate.side_effect = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await delete_collection_item_service(
+                token="invalid_token",
+                collection_id=collection_id,
+                item_id=item_id
+            )
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_item_by_id')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.soft_delete_collection_item')
+    @pytest.mark.asyncio
+    async def test_delete_collection_item_database_error(
+        self,
+        mock_soft_delete_item,
+        mock_get_item,
+        mock_get_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Test database error during item deletion"""
+        user_id = uuid4()
+        collection_id = uuid4()
+        item_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        mock_get_collection.return_value = MockCollection(id=collection_id, user_id=user_id)
+        mock_get_item.return_value = MockCollectionItem(id=item_id, recitation_collection_id=collection_id)
+        mock_soft_delete_item.side_effect = HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "BAD_REQUEST", "message": "Database error"}
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await delete_collection_item_service(
+                token="valid_token",
+                collection_id=collection_id,
+                item_id=item_id
+            )
+
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST

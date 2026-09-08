@@ -45,7 +45,7 @@ def test_filter_items_for_timezone_hides_restricted_items_in_china():
 
     with patch(
         "pecha_api.region_restrictions.region_restriction_service.get_restricted_item_ids",
-        return_value=frozenset({hidden_id}),
+        return_value=frozenset({str(hidden_id)}),
     ):
         filtered = filter_items_for_timezone(
             items,
@@ -141,9 +141,9 @@ def test_get_restricted_item_ids_and_is_restricted_in_china():
 
     with patch(
         "pecha_api.region_restrictions.region_restriction_service._load_restricted_item_ids_by_type",
-        return_value={RestrictedItemType.PLAN.value: frozenset({item_id})},
+        return_value={RestrictedItemType.PLAN.value: frozenset({str(item_id)})},
     ):
-        assert get_restricted_item_ids(RestrictedItemType.PLAN) == frozenset({item_id})
+        assert get_restricted_item_ids(RestrictedItemType.PLAN) == frozenset({str(item_id)})
         assert get_restricted_item_ids(RestrictedItemType.MANTRA) == frozenset()
         assert is_restricted_in_china(RestrictedItemType.PLAN, item_id) is True
         assert is_restricted_in_china(RestrictedItemType.PLAN, other_id) is False
@@ -165,5 +165,5 @@ def test_load_restricted_item_ids_by_type_groups_rows():
     ):
         mock_session_local.return_value.__enter__.return_value = MagicMock()
         clear_restricted_items_cache()
-        assert get_restricted_item_ids(RestrictedItemType.PLAN) == frozenset({plan_id})
-        assert get_restricted_item_ids(RestrictedItemType.MANTRA) == frozenset({mantra_id})
+        assert get_restricted_item_ids(RestrictedItemType.PLAN) == frozenset({str(plan_id)})
+        assert get_restricted_item_ids(RestrictedItemType.MANTRA) == frozenset({str(mantra_id)})

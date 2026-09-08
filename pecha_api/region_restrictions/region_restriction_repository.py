@@ -35,7 +35,7 @@ def create_china_restricted_item(
     db: Session,
     *,
     item_type: RestrictedItemType,
-    item_id: UUID,
+    item_id: str,
 ) -> ChinaRestrictedItem:
     row = ChinaRestrictedItem(item_type=item_type, item_id=item_id)
     db.add(row)
@@ -57,7 +57,7 @@ def is_item_restricted_in_china(
     db: Session,
     *,
     item_type: RestrictedItemType,
-    item_id: UUID,
+    item_id: str,
 ) -> bool:
     return (
         db.query(ChinaRestrictedItem.id)

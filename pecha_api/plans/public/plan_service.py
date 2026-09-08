@@ -1,4 +1,5 @@
 from typing import Optional, List
+import asyncio
 import logging
 from uuid import UUID
 from typing import Optional
@@ -12,6 +13,7 @@ from datetime import date as DateType, timedelta, datetime as dt, timezone
 from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDayDTO, AuthorDTO,PlanDaysResponse, PlanDayBasic, SubTaskDTO, TaskDTO, ImageUrlModel, TagsResponse, DailyPlanResponse, SeriesDTO, SeriesMetadataDTO, DayVideoSummaryDTO, PlanVideoSummaryDTO
 from pecha_api.plans.tags.tag_response_models import PublicTagDetailDTO, SegmentContentDTO
 from pecha_api.plans.items.plan_items_models import PlanItem
+from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.plans_enums import ContentType, UserPlanStatus
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
@@ -55,6 +57,7 @@ from pecha_api.plans.public.plans_cache_service import (
     get_plan_day_detail_cache,
     set_plan_day_detail_cache,
 )
+from pecha_api.plans.shared.subtask_content_resolver import resolve_subtasks_content
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +139,7 @@ async def get_published_plans(
                     start_date=plan.start_date,
                     display_order=plan.display_order,
                     group_id=group_id_by_plan_id.get(plan.id),
+                    series_id=plan.series_id,
                 )
                 plan_dtos.append(plan_dto)
             
@@ -218,8 +222,9 @@ async def get_published_plan(
                 start_date=plan.start_date,
                 display_order=plan.display_order,
                 group_id=group_id,
+                series_id=plan.series_id,
             )
-    
+
     except Exception as e:
         logger.error(f"Error fetching published plan details: {str(e)}", exc_info=True)
         raise HTTPException(
@@ -389,9 +394,12 @@ from pecha_api.plans.audio.dto_helpers import (
 )
 
 
-def build_task_dto(task) -> TaskDTO:
+async def build_task_dto(task) -> TaskDTO:
+    ordered_subtasks = sorted(task.sub_tasks, key=lambda st: st.display_order)
+    resolved_contents = await resolve_subtasks_content(ordered_subtasks)
+
     subtasks = []
-    for subtask in sorted(task.sub_tasks, key=lambda st: st.display_order):
+    for subtask, resolved_content in zip(ordered_subtasks, resolved_contents):
         start_ms, end_ms = build_subtask_timestamp_fields(subtask)
         audio_url = (
             generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=subtask.audio_url)
@@ -402,7 +410,7 @@ def build_task_dto(task) -> TaskDTO:
                 id=subtask.id,
                 content_type=subtask.content_type,
                 duration=subtask.duration,
-                content=generate_subtask_content_url(subtask.content_type, subtask.content or ""),
+                content=generate_subtask_content_url(subtask.content_type, resolved_content or ""),
                 image_url=subtask.content if subtask.content_type == ContentType.IMAGE else None,
                 audio_url=audio_url,
                 source_text_id=subtask.source_text_id,
@@ -424,15 +432,18 @@ def build_task_dto(task) -> TaskDTO:
     )
 
 
-def _build_plan_day_dto(plan_item) -> PlanDayDTO:
+async def _build_plan_day_dto(plan_item) -> PlanDayDTO:
     audio_url, audio_duration_ms, _, _ = build_plan_day_audio_fields(plan_item)
     thumbnail_url, _, shareable_image_url, _ = build_plan_day_shareable_image_fields(
         getattr(plan_item, "shareable_images", None)
     )
+    tasks = await asyncio.gather(
+        *[build_task_dto(task) for task in sorted(plan_item.tasks, key=lambda t: t.display_order)]
+    )
     return PlanDayDTO(
         id=plan_item.id,
         day_number=plan_item.day_number,
-        tasks=[build_task_dto(task) for task in sorted(plan_item.tasks, key=lambda t: t.display_order)],
+        tasks=tasks,
         audio_url=audio_url,
         audio_duration_ms=audio_duration_ms,
         thumbnail_url=thumbnail_url,
@@ -449,16 +460,26 @@ def _build_plan_day_dto(plan_item) -> PlanDayDTO:
         ],
     )
 
+def _get_plan_series_id(plan_id: UUID) -> Optional[UUID]:
+    with SessionLocal() as db:
+        return db.query(Plan.series_id).filter(Plan.id == plan_id).scalar()
+
+
 async def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
     """Get specific day's content with tasks"""
 
     cached = await get_plan_day_detail_cache(plan_id=plan_id, day_number=day_number)
     if cached is not None:
+        # Entries cached before series_id existed (or for non-series plans) carry
+        # None; resolve it fresh so stale cache entries stay correct.
+        if cached.series_id is None:
+            cached.series_id = _get_plan_series_id(plan_id)
         return cached
 
     with SessionLocal() as db:
         plan_item = get_plan_day_with_tasks_and_subtasks(db=db, plan_id=plan_id, day_number=day_number)
-        response = _build_plan_day_dto(plan_item)
+        response = await _build_plan_day_dto(plan_item)
+        response.series_id = db.query(Plan.series_id).filter(Plan.id == plan_id).scalar()
 
     await set_plan_day_detail_cache(plan_id=plan_id, day_number=day_number, data=response)
     return response
@@ -691,6 +712,9 @@ async def get_plan_daily_content(
                     next_plan_id = next_plan.id
 
         audio_url, audio_duration_ms, _, _ = build_plan_day_audio_fields(plan_item)
+        tasks = await asyncio.gather(
+            *[build_task_dto(task) for task in sorted(plan_item.tasks, key=lambda t: t.display_order)]
+        )
         return DailyPlanResponse(
             plan_id=plan.id,
             plan_title=plan.title,
@@ -708,7 +732,7 @@ async def get_plan_daily_content(
             next_plan_id=next_plan_id,
             audio_url=audio_url,
             audio_duration_ms=audio_duration_ms,
-            tasks=[build_task_dto(task) for task in sorted(plan_item.tasks, key=lambda t: t.display_order)]
+            tasks=tasks,
         )
 
 

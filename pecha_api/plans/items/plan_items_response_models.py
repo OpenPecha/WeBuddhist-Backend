@@ -27,6 +27,7 @@ class ReorderDaysRequest(BaseModel):
 class CreateDaysRequest(BaseModel):
     number_of_days: int = Field(default=1, ge=1)
     source_day_id: Optional[UUID] = None
+    cascade: bool = False
 
 class DeleteDaysRequest(BaseModel):
     day_ids: List[UUID]

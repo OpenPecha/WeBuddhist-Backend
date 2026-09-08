@@ -68,7 +68,7 @@ class GroupRecitationCollectionItem(Base):
         ForeignKey(FK_GROUP_RECITATION_COLLECTIONS_ID, ondelete="CASCADE"),
         nullable=False,
     )
-    text_id = Column(UUID(as_uuid=True), nullable=False)
+    text_id = Column(String(255), nullable=False)
     display_order = Column(Integer, nullable=False)
 
     deleted_at = Column(DateTime(timezone=True), nullable=True)

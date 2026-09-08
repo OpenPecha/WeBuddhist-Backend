@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 from typing import Optional
 from uuid import UUID
@@ -22,11 +23,14 @@ from pecha_api.texts.segments.segments_repository import (
     get_related_mapped_segments,
     get_segment_by_id,
 )
-from pecha_api.texts.texts_repository import (
-    get_all_texts_by_group_id,
-    get_first_segment_table_of_content,
-    get_texts_by_id,
+from fastapi import HTTPException
+from pecha_api.texts.texts_openpecha_service import (
+    get_text_by_id_from_openpecha,
+    get_text_versions_from_openpecha,
 )
+from pecha_api.texts.texts_openpecha_api import fetch_edition_text_id
+from pecha_api.recitations.recitations_services import build_first_segment_for_edition
+from pecha_api.texts.texts_repository import get_first_segment_table_of_content
 from pecha_api.plans.public.plan_repository import get_published_plan_by_id
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.items.plan_items_models import PlanItem
@@ -53,7 +57,11 @@ from pecha_api.texts.first_segment_preview_service import (
     resolve_segment_by_ref,
 )
 from pecha_api.mantra.mantra_repository import get_mantra_by_id
-from pecha_api.plans.groups.groups_repository import get_group_by_id, get_group_member
+from pecha_api.plans.groups.groups_repository import (
+    get_group_by_id,
+    get_group_member,
+    is_group_published,
+)
 from pecha_api.timers.timer_repository import get_timer_by_id
 from pecha_api.group_recitation_collection.repository import (
     get_collection_item_counts,
@@ -67,7 +75,10 @@ from pecha_api.plans.users.recitation_collection.recitation_collection_repositor
     get_collection_item_counts as get_recitation_collection_item_counts,
 )
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_FALLBACK_LANGUAGE = "EN"
+INVALID_BOOKMARK_TEXT_PLACEHOLDER = "Invalid data"
 
 
 def _normalize_language(language: Optional[str]) -> Optional[str]:
@@ -107,6 +118,77 @@ def _bookmark_image_url(
 
 def _text_language_code(text) -> str:
     return text.language if isinstance(text.language, str) else str(text.language)
+
+
+async def _try_get_openpecha_text(text_id: str):
+    try:
+        return await get_text_by_id_from_openpecha(text_id=text_id)
+    except HTTPException:
+        return None
+
+
+async def _try_build_first_segment_preview(text_id: str):
+    try:
+        return await build_first_segment_preview_for_text(text_id)
+    except Exception:
+        # A preview is a nice-to-have decoration; don't let a lookup failure
+        # (e.g. Mongo unavailable) 500 the whole bookmarks list.
+        logger.warning("Failed to build first segment preview for text %s", text_id, exc_info=True)
+        return None
+
+
+async def _resolve_edition_text_id(edition_id: str) -> Optional[str]:
+    """Chant/recitation bookmarks store an edition id as `source_id` (the
+    recitations listing hands out edition ids in place of text ids). Plain
+    text bookmarks store a real text id, which isn't a valid edition, so any
+    failure here just means "not an edition" rather than a hard error.
+    """
+    try:
+        return await fetch_edition_text_id(edition_id=edition_id)
+    except Exception:
+        return None
+
+
+async def _try_build_first_segment_for_edition(edition_id: str):
+    try:
+        return await build_first_segment_for_edition(edition_id=edition_id)
+    except Exception:
+        logger.warning("Failed to build first segment for edition %s", edition_id, exc_info=True)
+        return None
+
+
+def _invalid_text_bookmark_segment(source_id: str) -> BookmarkSegmentDTO:
+    return BookmarkSegmentDTO(id=source_id, content=INVALID_BOOKMARK_TEXT_PLACEHOLDER)
+
+
+async def _enrich_edition_text_bookmark(
+    source_id: str,
+    resolved_text_id: str,
+    language: Optional[str],
+) -> dict:
+    lookup_text_id = resolved_text_id
+    if language:
+        text = await _resolve_localized_text(text_id=lookup_text_id, language=language)
+        if not text:
+            text = await _try_get_openpecha_text(text_id=lookup_text_id)
+    else:
+        text = await _try_get_openpecha_text(text_id=lookup_text_id)
+
+    segment = await _try_build_first_segment_for_edition(source_id)
+
+    return {
+        "text": BookmarkTextDTO(
+            # The id on the wire is always the edition id (`source_id`), matching
+            # how chant/recitation listings expose editions as the text id.
+            id=source_id,
+            title=text.title if text else INVALID_BOOKMARK_TEXT_PLACEHOLDER,
+            segment=(
+                BookmarkSegmentDTO(id=segment.id, content=segment.content)
+                if segment
+                else _invalid_text_bookmark_segment(source_id)
+            ),
+        )
+    }
 
 
 async def _resolve_text_segment(
@@ -161,6 +243,13 @@ async def enrich_text_bookmark(
             if not segment_id:
                 return {}
         else:
+            resolved_edition_text_id = await _resolve_edition_text_id(text_id)
+            if resolved_edition_text_id is not None:
+                return await _enrich_edition_text_bookmark(
+                    source_id=text_id,
+                    resolved_text_id=resolved_edition_text_id,
+                    language=language,
+                )
             use_first_segment_preview = True
     else:
         return {}
@@ -170,9 +259,9 @@ async def enrich_text_bookmark(
         if text:
             text_id = str(text.id)
         else:
-            text = await get_texts_by_id(text_id=text_id)
+            text = await _try_get_openpecha_text(text_id=text_id)
     else:
-        text = await get_texts_by_id(text_id=text_id)
+        text = await _try_get_openpecha_text(text_id=text_id)
 
     if not use_first_segment_preview and language and segment and text_id != segment.text_id:
         localized_segment = await _resolve_localized_segment(
@@ -185,7 +274,7 @@ async def enrich_text_bookmark(
 
     segment_dto = None
     if use_first_segment_preview:
-        preview = await build_first_segment_preview_for_text(text_id)
+        preview = await _try_build_first_segment_preview(text_id)
         if not preview:
             return {}
         segment_id, preview_content = preview
@@ -209,14 +298,16 @@ async def enrich_text_bookmark(
 
 
 async def _resolve_localized_text(text_id: str, language: Optional[str]):
-    text = await get_texts_by_id(text_id=text_id)
+    text = await _try_get_openpecha_text(text_id=text_id)
     if not text or not language:
         return text
 
-    group_texts = await get_all_texts_by_group_id(group_id=text.group_id)
-    if not group_texts:
+    try:
+        version_response = await get_text_versions_from_openpecha(text_id=text_id)
+    except HTTPException:
         return text
 
+    group_texts = [version_response.text] + list(version_response.versions or [])
     matched = filter_by_language_with_fallback(
         entries=group_texts,
         language=language,
@@ -500,7 +591,7 @@ def enrich_group_recitation_collection_bookmark(
     # Mirror the access rules of group-content reads: collections are visible
     # only when the group is public or the user is currently a member.
     group = get_group_by_id(db=db, group_id=collection.group_id)
-    if not group:
+    if not group or not is_group_published(group):
         return {}
     if not group.is_public and not get_group_member(
         db=db,

@@ -146,7 +146,7 @@ async def get_user_plan_day_details(
     day_number: int,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
 ):
-    return get_user_plan_day_details_service(
+    return await get_user_plan_day_details_service(
         token=authentication_credential.credentials,
         plan_id=plan_id,
         day_number=day_number

@@ -35,12 +35,6 @@
       "name": "Chinese",
       "native_name": "中文",
       "enabled": true
-    },
-    {
-      "code": "la",
-      "name": "Ladakhi",
-      "native_name": "ལ་དྭགས་སྐད།",
-      "enabled": true
     }
   ]
 }

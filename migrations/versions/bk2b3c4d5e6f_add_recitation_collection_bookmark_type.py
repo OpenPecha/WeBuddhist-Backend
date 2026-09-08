@@ -12,7 +12,7 @@ from typing import Sequence, Union
 
 from alembic import op
 
-from migrations.idempotency import enum_value_exists
+from migrations.idempotency import enum_exists, enum_value_exists
 
 # revision identifiers, used by Alembic.
 revision: str = 'bk2b3c4d5e6f'
@@ -22,6 +22,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    if not enum_exists("bookmark_type"):
+        # Environments stamped past t4u5v6w7x8y9 without executing it never got
+        # the type; create it here with the full value set instead of altering.
+        op.execute(
+            "CREATE TYPE bookmark_type AS ENUM "
+            "('TEXT', 'PLAN', 'SERIES', 'ACCUMULATOR', 'TIMER', 'VERSE', "
+            "'GROUP_RECITATION_COLLECTION', 'RECITATION_COLLECTION')"
+        )
+        return
     if enum_value_exists("bookmark_type", "RECITATION_COLLECTION"):
         return
     # ADD VALUE cannot run inside a transaction block

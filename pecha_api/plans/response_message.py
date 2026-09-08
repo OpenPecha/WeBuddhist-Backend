@@ -42,6 +42,7 @@ PLAN_START_DATE_UPDATE_NOT_ALLOWED_FOR_PUBLISHED_WITH_SUBSCRIBERS = "Cannot upda
 PLAN_DAYS_OVERLAP_NEXT_PLAN = "Cannot add day(s): plan would extend past the start date of the next plan in the series ({next_start_date}). Only {available_days} more day(s) can be added."
 PLAN_SCHEDULE_OVERLAPS_NEXT_PLAN = "This schedule would overlap the next plan in the series: the plan would end on {plan_end_date} but the next plan starts on {next_start_date}."
 PLAN_SCHEDULE_OVERLAPS_PREVIOUS_PLAN = "This schedule would overlap the previous plan in the series, which ends on {previous_end_date}."
+PLAN_CASCADE_SHIFT_BLOCKED = "Cannot shift '{blocking_plan_title}' forward: it is published and already has active subscribers. Update that plan's schedule manually first."
 PLAN_AUTHOR_MISMATCH = "You are not authorized to update this plan"
 EMAIL_IS_SENT = "Email is sent. Please check your email to verify your account."
 UNAUTHORIZED_PLAN_DELETE = "You are not authorized to delete this plan"

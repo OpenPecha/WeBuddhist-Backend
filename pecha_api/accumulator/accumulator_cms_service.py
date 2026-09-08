@@ -149,7 +149,7 @@ async def create_preset_accumulator_cms_service(
             type=AccumulatorType.PRESET,
             target_count=request.target_count,
             current_count=0,
-            text_id=request.text_id,
+            text_id=str(request.text_id) if request.text_id is not None else None,
             mantra_id=request.mantra_id,
             mala_image=request.mala_image_id,
         )
@@ -184,7 +184,7 @@ async def update_preset_accumulator_cms_service(
         if request.target_count is not None:
             preset.target_count = request.target_count
         if request.text_id is not None:
-            preset.text_id = request.text_id
+            preset.text_id = str(request.text_id)
         if request.mantra_id is not None:
             validate_mantra_exists(db, request.mantra_id)
             preset.mantra_id = request.mantra_id

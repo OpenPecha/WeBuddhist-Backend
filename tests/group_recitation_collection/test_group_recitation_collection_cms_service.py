@@ -42,7 +42,7 @@ class MockGroupRecitationCollectionItem:
     """Mock GroupRecitationCollectionItem model."""
     def __init__(self, id=None, text_id=None, display_order=1):
         self.id = id or uuid4()
-        self.text_id = text_id or uuid4()
+        self.text_id = str(text_id or uuid4())
         self.display_order = display_order
         self.deleted_at = None
 
@@ -51,6 +51,8 @@ class MockGroup:
     """Mock Group model."""
     def __init__(self, id=None):
         self.id = id or uuid4()
+        # Published by default; these cases test is_public on live groups.
+        self.status = "PUBLISHED"
 
 
 class MockAuthor:
@@ -556,13 +558,12 @@ class TestCmsAddItemsService:
     @patch('pecha_api.group_recitation_collection.cms_service.get_group_by_id')
     @patch('pecha_api.group_recitation_collection.cms_service.require_can_create_content')
     @patch('pecha_api.group_recitation_collection.cms_service.get_collection_by_id')
-    @patch('pecha_api.group_recitation_collection.cms_service.TextUtils.validate_text_exists')
     @patch('pecha_api.group_recitation_collection.cms_service.get_max_display_order')
     @patch('pecha_api.group_recitation_collection.cms_service.create_collection_items')
     @patch('pecha_api.group_recitation_collection.cms_service._build_items_dto')
     @pytest.mark.asyncio
     async def test_add_items_success(
-        self, mock_build_items, mock_create_items, mock_max_order, mock_validate_text,
+        self, mock_build_items, mock_create_items, mock_max_order,
         mock_get_collection, mock_require_create, mock_get_group, mock_validate, mock_session
     ):
         """Test successful addition of items to collection."""
@@ -574,10 +575,9 @@ class TestCmsAddItemsService:
         mock_session.return_value.__enter__.return_value = mock_db
         mock_validate.return_value = MockAuthor()
         mock_get_group.return_value = MockGroup(id=group_id)
-        
+
         collection = MockGroupRecitationCollection(id=collection_id, group_id=group_id)
         mock_get_collection.return_value = collection
-        mock_validate_text.return_value = None
         mock_max_order.return_value = 0
         
         saved_items = [
@@ -590,7 +590,7 @@ class TestCmsAddItemsService:
         mock_build_items.return_value = [
             GroupRecitationCollectionItemDTO(
                 id=saved_items[0].id,
-                text_id=text_id1,
+                text_id=str(text_id1),
                 title="Text 1",
                 language="bo",
                 type="sutra",
@@ -598,7 +598,7 @@ class TestCmsAddItemsService:
             ),
             GroupRecitationCollectionItemDTO(
                 id=saved_items[1].id,
-                text_id=text_id2,
+                text_id=str(text_id2),
                 title="Text 2",
                 language="bo",
                 type="sutra",
@@ -651,37 +651,43 @@ class TestCmsAddItemsService:
     @patch('pecha_api.group_recitation_collection.cms_service.get_group_by_id')
     @patch('pecha_api.group_recitation_collection.cms_service.require_can_create_content')
     @patch('pecha_api.group_recitation_collection.cms_service.get_collection_by_id')
-    @patch('pecha_api.group_recitation_collection.cms_service.TextUtils.validate_text_exists')
+    @patch('pecha_api.group_recitation_collection.cms_service.get_max_display_order')
+    @patch('pecha_api.group_recitation_collection.cms_service.create_collection_items')
+    @patch('pecha_api.group_recitation_collection.cms_service.get_texts_by_edition_or_text_ids')
     @pytest.mark.asyncio
-    async def test_add_items_text_not_found(
-        self, mock_validate_text, mock_get_collection, mock_require_create,
-        mock_get_group, mock_validate, mock_session
+    async def test_add_items_accepts_non_uuid_edition_id_and_filters_unresolved_text(
+        self, mock_get_texts, mock_create_items, mock_max_order,
+        mock_get_collection, mock_require_create, mock_get_group, mock_validate, mock_session
     ):
-        """Test add items when text doesn't exist."""
+        """OpenPecha edition ids are not UUIDs; unresolved ids are silently dropped from the response
+        rather than raising, mirroring the user recitation collection behavior."""
         group_id = uuid4()
         collection_id = uuid4()
-        text_id = uuid4()
+        edition_id = "not-a-uuid-edition-id"
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
         mock_validate.return_value = MockAuthor()
         mock_get_group.return_value = MockGroup(id=group_id)
-        
+
         collection = MockGroupRecitationCollection(id=collection_id, group_id=group_id)
         mock_get_collection.return_value = collection
-        mock_validate_text.side_effect = HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": "NOT_FOUND", "message": "Text not found"}
+        mock_max_order.return_value = 0
+
+        saved_item = MockGroupRecitationCollectionItem(text_id=edition_id, display_order=1)
+        mock_create_items.return_value = [saved_item]
+        mock_get_texts.return_value = {}
+
+        result = await cms_add_items_service(
+            token="admin_token",
+            group_id=group_id,
+            collection_id=collection_id,
+            text_ids=[edition_id],
         )
 
-        with pytest.raises(HTTPException) as exc_info:
-            await cms_add_items_service(
-                token="admin_token",
-                group_id=group_id,
-                collection_id=collection_id,
-                text_ids=[text_id],
-            )
-
-        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+        assert isinstance(result, AddGroupRecitationCollectionItemsResponse)
+        assert result.collection_id == collection_id
+        assert result.added_count == 1
+        assert result.items == []
 
 
 class TestCmsDeleteItemService:
@@ -795,7 +801,7 @@ class TestCmsReorderItemsService:
         mock_build_items.return_value = [
             GroupRecitationCollectionItemDTO(
                 id=item_id2,
-                text_id=uuid4(),
+                text_id=str(uuid4()),
                 title="Text 2",
                 language="bo",
                 type="sutra",
@@ -803,7 +809,7 @@ class TestCmsReorderItemsService:
             ),
             GroupRecitationCollectionItemDTO(
                 id=item_id1,
-                text_id=uuid4(),
+                text_id=str(uuid4()),
                 title="Text 1",
                 language="bo",
                 type="sutra",

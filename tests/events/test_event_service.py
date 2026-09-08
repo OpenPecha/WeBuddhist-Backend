@@ -3,7 +3,11 @@ from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 from pecha_api.events.event_response_models import EventDTO, EventsResponse
-from pecha_api.events.event_service import get_events_service, get_events_today_service
+from pecha_api.events.event_service import (
+    EventContentFilter,
+    get_events_service,
+    get_events_today_service,
+)
 
 
 def test_get_events_today_service_uses_day_bounds():
@@ -34,7 +38,7 @@ def test_get_events_today_service_uses_day_bounds():
 
     mock_bounds.assert_called_once_with("Asia/Kathmandu")
     mock_get_events.assert_called_once_with(
-        group_id=None,
+        content_filter=EventContentFilter(group_id=None),
         from_date=start,
         to_date=end,
         language="en",

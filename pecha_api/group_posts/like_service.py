@@ -27,7 +27,7 @@ from pecha_api.group_posts.like_response_models import (
 from pecha_api.group_posts.repository import get_post_by_id_only
 from pecha_api.group_posts.service_utils import (
     isoformat,
-    validate_group_is_public,
+    validate_group_content_access,
 )
 
 logger = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ def like_post_service(
     """Like a post. Idempotent - returns 200 if already liked."""
     with SessionLocal() as db:
         post, group_id = _get_and_validate_post(db, post_id)
-        validate_group_is_public(db, group_id)
+        validate_group_content_access(db=db, group_id=group_id, user_id=user_id)
 
         like = GroupPostLike(
             post_id=post_id,
@@ -78,7 +78,7 @@ def unlike_post_service(
     """Unlike a post. Idempotent - succeeds even if not liked."""
     with SessionLocal() as db:
         post, group_id = _get_and_validate_post(db, post_id)
-        validate_group_is_public(db, group_id)
+        validate_group_content_access(db=db, group_id=group_id, user_id=user_id)
 
         delete_like(db=db, post_id=post_id, user_id=user_id)
 
@@ -87,11 +87,12 @@ def list_post_likers_service(
     post_id: UUID,
     skip: int = 0,
     limit: int = 20,
+    user_id: Optional[UUID] = None,
 ) -> PostLikersResponse:
-    """Public list of users who liked a post."""
+    """List users who liked a post."""
     with SessionLocal() as db:
         post, group_id = _get_and_validate_post(db, post_id)
-        validate_group_is_public(db, group_id)
+        validate_group_content_access(db=db, group_id=group_id, user_id=user_id)
 
         likes, total = get_post_likers(
             db=db,

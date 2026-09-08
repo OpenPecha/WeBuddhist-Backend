@@ -50,7 +50,7 @@ class TestDataFactory:
         """Create a UserRecitationDTO with specified attributes."""
         return UserRecitationDTO(
             title=title,
-            text_id=text_id or uuid4(),
+            text_id=str(text_id or uuid4()),
             image_url=image_url,
             language=language,
             display_order=display_order
@@ -157,9 +157,9 @@ class TestGetUserRecitationsView:
         assert isinstance(result, UserRecitationsResponse)
         assert len(result.recitations) == 2
         assert result.recitations[0].title == "Heart Sutra"
-        assert result.recitations[0].text_id == text_id_1
+        assert result.recitations[0].text_id == str(text_id_1)
         assert result.recitations[1].title == "Diamond Sutra"
-        assert result.recitations[1].text_id == text_id_2
+        assert result.recitations[1].text_id == str(text_id_2)
         
         mock_service.assert_awaited_once_with(
             token=token,
@@ -213,7 +213,7 @@ class TestGetUserRecitationsView:
         assert isinstance(result, UserRecitationsResponse)
         assert len(result.recitations) == 1
         assert result.recitations[0].title == "Lotus Sutra"
-        assert result.recitations[0].text_id == text_id
+        assert result.recitations[0].text_id == str(text_id)
         
         mock_service.assert_awaited_once_with(
             token=token,
@@ -583,7 +583,7 @@ class TestGetUserRecitationsService:
         mock_session_local.return_value.__enter__.return_value = MagicMock()
         mock_session_local.return_value.__exit__.return_value = None
         mock_get_user_recitations.return_value = [
-            SimpleNamespace(text_id=text_id, display_order=1)
+            SimpleNamespace(text_id=str(text_id), display_order=1)
         ]
         mock_get_texts.return_value = {
             str(text_id): SimpleNamespace(title="Heart Sutra", language="bo")
@@ -594,4 +594,4 @@ class TestGetUserRecitationsService:
 
         assert len(result.recitations) == 1
         assert result.recitations[0].title == "Heart Sutra"
-        assert result.recitations[0].text_id == text_id
+        assert result.recitations[0].text_id == str(text_id)

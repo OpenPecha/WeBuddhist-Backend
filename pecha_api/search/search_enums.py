@@ -12,7 +12,5 @@ class QueryType(Enum):
     BOOL = "bool"    # Boolean query with exact matching
 
 class MultilingualSearchType(Enum):
-    HYBRID = "hybrid"      # Combined semantic + keyword search
-    BM25 = "bm25"         # Keyword-based ranking algorithm
-    SEMANTIC = "semantic" # Vector similarity search
-    EXACT = "exact"       # Exact text matching
+    EXACT = "exact"
+    SIMILAR = "similar"

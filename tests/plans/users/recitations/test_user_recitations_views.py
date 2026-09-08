@@ -50,7 +50,7 @@ class TestDataFactory:
         """Create a UserRecitationDTO with specified attributes."""
         return UserRecitationDTO(
             title=title,
-            text_id=text_id or uuid4(),
+            text_id=str(text_id or uuid4()),
             language=language,
             display_order=display_order
         )
@@ -156,9 +156,9 @@ class TestGetUserRecitationsView:
         assert isinstance(result, UserRecitationsResponse)
         assert len(result.recitations) == 2
         assert result.recitations[0].title == "Heart Sutra"
-        assert result.recitations[0].text_id == text_id_1
+        assert result.recitations[0].text_id == str(text_id_1)
         assert result.recitations[1].title == "Diamond Sutra"
-        assert result.recitations[1].text_id == text_id_2
+        assert result.recitations[1].text_id == str(text_id_2)
         
         mock_service.assert_awaited_once_with(
             token=token,
@@ -212,7 +212,7 @@ class TestGetUserRecitationsView:
         assert isinstance(result, UserRecitationsResponse)
         assert len(result.recitations) == 1
         assert result.recitations[0].title == "Lotus Sutra"
-        assert result.recitations[0].text_id == text_id
+        assert result.recitations[0].text_id == str(text_id)
         
         mock_service.assert_awaited_once_with(
             token=token,

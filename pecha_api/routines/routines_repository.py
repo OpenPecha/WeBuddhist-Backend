@@ -128,7 +128,7 @@ def get_plan_source_ids_by_time_block_id(
         )
         .all()
     )
-    return [s.source_id for s in sessions]
+    return [UUID(s.source_id) for s in sessions]
 
 
 def soft_delete_time_block(db: Session, time_block: RoutineTimeBlock) -> None:
@@ -229,7 +229,7 @@ def get_time_blocks_containing_series(
             Routine.deleted_at.is_(None),
             RoutineTimeBlock.deleted_at.is_(None),
             RoutineSession.session_type == SessionType.SERIES,
-            RoutineSession.source_id == series_id,
+            RoutineSession.source_id == str(series_id),
         )
         .all()
     )
@@ -246,7 +246,7 @@ def get_time_blocks_containing_plan(db: Session, user_id: UUID, plan_id: UUID) -
             Routine.deleted_at.is_(None),
             RoutineTimeBlock.deleted_at.is_(None),
             RoutineSession.session_type == SessionType.PLAN,
-            RoutineSession.source_id == plan_id,
+            RoutineSession.source_id == str(plan_id),
         )
         .all()
     )
@@ -269,7 +269,7 @@ def add_plan_session_to_time_block(db: Session, time_block_id: UUID, plan_id: UU
     session = RoutineSession(
         time_block_id=time_block_id,
         session_type=SessionType.PLAN,
-        source_id=plan_id,
+        source_id=str(plan_id),
         display_order=display_order,
     )
     db.add(session)
@@ -289,7 +289,7 @@ def get_series_source_ids_by_time_block_id(
         )
         .all()
     )
-    return [s.source_id for s in sessions]
+    return [UUID(s.source_id) for s in sessions]
 
 
 def get_existing_plan_source_ids(db: Session, routine_id: UUID) -> List[UUID]:
@@ -304,7 +304,7 @@ def get_existing_plan_source_ids(db: Session, routine_id: UUID) -> List[UUID]:
         )
         .all()
     )
-    return [s.source_id for s in sessions]
+    return [UUID(s.source_id) for s in sessions]
 
 
 def get_existing_plan_source_ids_in_routine(
@@ -322,7 +322,7 @@ def get_existing_plan_source_ids_in_routine(
     )
     if exclude_time_block_id:
         query = query.filter(RoutineTimeBlock.id != exclude_time_block_id)
-    return [row[0] for row in query.all()]
+    return [UUID(row[0]) for row in query.all()]
 
 
 def get_existing_collection_source_ids(
@@ -341,7 +341,7 @@ def get_existing_collection_source_ids(
         )
         .all()
     )
-    return [s.source_id for s in sessions]
+    return [UUID(s.source_id) for s in sessions]
 
 
 def get_existing_collection_source_ids_in_routine(
@@ -362,7 +362,7 @@ def get_existing_collection_source_ids_in_routine(
     )
     if exclude_time_block_id:
         query = query.filter(RoutineTimeBlock.id != exclude_time_block_id)
-    return [row[0] for row in query.all()]
+    return [UUID(row[0]) for row in query.all()]
 
 
 def get_collection_source_ids_by_time_block_id(
@@ -379,7 +379,7 @@ def get_collection_source_ids_by_time_block_id(
         )
         .all()
     )
-    return [s.source_id for s in sessions]
+    return [UUID(s.source_id) for s in sessions]
 
 
 def get_routine_series_and_recitation_counts(

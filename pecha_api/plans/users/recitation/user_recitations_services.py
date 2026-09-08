@@ -74,7 +74,7 @@ async def create_user_recitation_service(
 
         new_user_recitations = UserRecitations(
             user_id=current_user.id,
-            text_id=create_user_recitation_request.text_id,
+            text_id=str(create_user_recitation_request.text_id),
             display_order=next_order,
         )
         save_user_recitation(db=db, user_recitations=new_user_recitations)
@@ -95,7 +95,7 @@ async def update_recitation_order_service(
 
     with SessionLocal() as db:
         recitation_updates = [
-            {"text_id": item.text_id, "display_order": item.display_order}
+            {"text_id": str(item.text_id), "display_order": item.display_order}
             for item in update_order_request.recitations
         ]
         update_recitation_order_in_bulk(
@@ -103,7 +103,7 @@ async def update_recitation_order_service(
         )
 
 
-async def delete_user_recitation_service(token: str, text_id: UUID) -> None:
+async def delete_user_recitation_service(token: str, text_id: str) -> None:
     current_user = validate_and_extract_user_details(token=token)
 
     with SessionLocal() as db:

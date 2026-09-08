@@ -1,3 +1,6 @@
+import asyncio
+import logging
+
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 from starlette import status
@@ -12,7 +15,8 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.users.users_service import validate_and_extract_user_details
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST
-from pecha_api.texts.texts_models import Text
+from pecha_api.texts.texts_openpecha_service import get_text_by_id_from_openpecha
+from pecha_api.texts.texts_openpecha_api import fetch_edition_text_id
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.users.recitation_collection.recitation_collection_models import (
     RecitationCollection,
@@ -40,9 +44,12 @@ from pecha_api.accumulator.accumulator_service import (
     resolve_accumulator_bookmark_mala_image_url,
 )
 from pecha_api.mantra.mantra_repository import get_mantras_by_ids
-from pecha_api.texts.first_segment_preview_service import (
-    build_first_segment_previews_for_texts,
+from pecha_api.recitations.recitations_services import (
+    build_first_segment_for_edition,
+    get_first_segment_for_text,
 )
+
+logger = logging.getLogger(__name__)
 
 from .routines_models import Routine, RoutineTimeBlock, RoutineSession
 from .routines_enums import SessionType
@@ -292,7 +299,7 @@ def _check_duplicate_collections(db, routine_id: UUID, sessions: List) -> None:
             db=db, routine_id=routine_id, session_type=session_type
         )
         new_collection_ids = [
-            s.source_id for s in sessions if s.session_type == session_type
+            _as_uuid(s.source_id) for s in sessions if s.session_type == session_type
         ]
         overlap = set(new_collection_ids) & set(existing_collection_ids)
         if overlap:
@@ -319,7 +326,7 @@ def _check_duplicate_collections_on_update(
             session_type=session_type,
         )
         new_collection_ids = [
-            s.source_id for s in sessions if s.session_type == session_type
+            _as_uuid(s.source_id) for s in sessions if s.session_type == session_type
         ]
         overlap = set(new_collection_ids) & set(existing_collection_ids)
         if overlap:
@@ -342,16 +349,16 @@ def _check_duplicate_time(db, routine_id: UUID, time: str) -> None:
 
 
 def _extract_plan_ids(sessions: List) -> List[UUID]:
-    return [s.source_id for s in sessions if s.session_type == SessionType.PLAN]
+    return [_as_uuid(s.source_id) for s in sessions if s.session_type == SessionType.PLAN]
 
 
 def _extract_series_ids(sessions: List) -> List[UUID]:
-    return [s.source_id for s in sessions if s.session_type == SessionType.SERIES]
+    return [_as_uuid(s.source_id) for s in sessions if s.session_type == SessionType.SERIES]
 
 
 def _normalize_plan_sessions_to_series(db, sessions: List[SessionRequest]) -> List[SessionRequest]:
     plan_ids = [
-        session.source_id
+        _as_uuid(session.source_id)
         for session in sessions
         if session.session_type == SessionType.PLAN and session.source_id is not None
     ]
@@ -371,12 +378,13 @@ def _normalize_plan_sessions_to_series(db, sessions: List[SessionRequest]) -> Li
     for session in sessions:
         if (
             session.session_type == SessionType.PLAN
-            and session.source_id in plan_series_map
+            and session.source_id is not None
+            and _as_uuid(session.source_id) in plan_series_map
         ):
             normalized.append(
                 SessionRequest(
                     session_type=SessionType.SERIES,
-                    source_id=plan_series_map[session.source_id],
+                    source_id=plan_series_map[_as_uuid(session.source_id)],
                     display_order=session.display_order,
                 )
             )
@@ -566,7 +574,11 @@ def build_session_models(time_block_id: UUID, sessions: List) -> List[RoutineSes
         RoutineSession(
             time_block_id=time_block_id,
             session_type=session.session_type,
-            source_id=None if session.session_type == SessionType.TIMER else session.source_id,
+            source_id=(
+                str(session.source_id)
+                if session.session_type != SessionType.TIMER and session.source_id is not None
+                else None
+            ),
             duration_ms=session.duration_ms if session.session_type == SessionType.TIMER else None,
             display_order=session.display_order,
         )
@@ -578,33 +590,34 @@ def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession], user_id: UUI
     if not plan_sessions:
         return []
 
-    plan_ids = [session.source_id for session in plan_sessions]
+    plan_ids = [_as_uuid(session.source_id) for session in plan_sessions]
     plans = get_plans_by_ids(db=db, plan_ids=plan_ids)
     plan_map = {plan.id: plan for plan in plans}
-    
+
     # Fetch user progress data for all plan sessions
     progress_map = get_plan_progress_by_user_id_and_plan_ids(
         db=db, user_id=user_id, plan_ids=plan_ids
     )
-    
+
     resolved = []
     for session in plan_sessions:
-        plan = plan_map.get(session.source_id)
+        plan_id = _as_uuid(session.source_id)
+        plan = plan_map.get(plan_id)
         if plan is None:
             continue
 
         plan_image = safe_get_image_url(
             plan.image_url, resource_id=plan.id, resource_type="plan"
         )
-        
+
         # Get user progress for this plan
-        progress = progress_map.get(session.source_id)
+        progress = progress_map.get(plan_id)
         
         resolved.append(
             SessionDTO(
                 id=session.id,
                 session_type=session.session_type,
-                source_id=session.source_id,
+                source_id=str(session.source_id) if session.source_id is not None else None,
                 title=plan.title,
                 language=(
                     plan.language.value
@@ -620,11 +633,63 @@ def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession], user_id: UUI
     return resolved
 
 
-def _normalize_text_id(text_id) -> str:
+def _as_uuid(value) -> UUID:
+    """RoutineSession.source_id is read back as a plain str, but tolerate an
+    already-UUID value too (e.g. an in-memory session not yet round-tripped
+    through the DB)."""
+    return value if isinstance(value, UUID) else UUID(value)
+
+
+async def _try_get_openpecha_text(text_id: str):
     try:
-        return str(UUID(str(text_id)))
-    except (ValueError, TypeError):
-        return str(text_id)
+        return await get_text_by_id_from_openpecha(text_id=text_id)
+    except HTTPException:
+        return None
+
+
+async def _try_get_first_segment_for_text(text_id: str):
+    try:
+        return await get_first_segment_for_text(text_id=text_id)
+    except Exception:
+        # A preview is a nice-to-have decoration; don't let a lookup failure
+        # 500 the whole routine listing.
+        logger.warning("Failed to build first segment preview for recitation text %s", text_id, exc_info=True)
+        return None
+
+
+async def _try_resolve_edition_text_id(source_id: str) -> Optional[str]:
+    try:
+        return await fetch_edition_text_id(edition_id=source_id)
+    except Exception:
+        return None
+
+
+async def _try_build_first_segment_for_edition(edition_id: str):
+    try:
+        return await build_first_segment_for_edition(edition_id=edition_id)
+    except Exception:
+        logger.warning("Failed to build first segment preview for recitation edition %s", edition_id, exc_info=True)
+        return None
+
+
+async def _resolve_recitation_text_and_segment(source_id: str):
+    """A RECITATION session's `source_id` is polymorphic: the recitations
+    listing hands out OpenPecha edition ids labeled as `text_id` on the wire
+    (see `_with_edition_id_as_text_id` in recitations_services.py), so it's
+    usually an edition id rather than a plain text id. Try it as an edition
+    id first, mirroring the resolution bookmark_utils.py already uses for
+    chant bookmarks, and fall back to treating it as a text id.
+    """
+    edition_text_id = await _try_resolve_edition_text_id(source_id)
+    if edition_text_id is not None:
+        return await asyncio.gather(
+            _try_get_openpecha_text(edition_text_id),
+            _try_build_first_segment_for_edition(source_id),
+        )
+    return await asyncio.gather(
+        _try_get_openpecha_text(source_id),
+        _try_get_first_segment_for_text(source_id),
+    )
 
 
 async def _resolve_recitation_sessions(
@@ -633,36 +698,52 @@ async def _resolve_recitation_sessions(
     if not recitation_sessions:
         return []
 
-    text_ids = [_normalize_text_id(session.source_id) for session in recitation_sessions]
-    texts = await Text.get_texts_by_ids(text_ids)
-    text_map = {_normalize_text_id(text.id): text for text in texts}
-    previews_by_text_id = await build_first_segment_previews_for_texts(text_ids)
+    text_ids = [str(session.source_id) for session in recitation_sessions]
+    unique_text_ids = list(dict.fromkeys(text_ids))
+    resolved_pairs = await asyncio.gather(
+        *(_resolve_recitation_text_and_segment(text_id) for text_id in unique_text_ids)
+    )
+    text_map = {
+        text_id: text
+        for text_id, (text, _segment) in zip(unique_text_ids, resolved_pairs)
+        if text is not None
+    }
+    previews_by_text_id = {
+        text_id: (segment.id, segment.content)
+        for text_id, (_text, segment) in zip(unique_text_ids, resolved_pairs)
+        if segment is not None
+    }
 
     resolved = []
     for session in recitation_sessions:
-        text_id = _normalize_text_id(session.source_id)
+        text_id = str(session.source_id)
         text = text_map.get(text_id)
         if text is None:
             continue
 
+        # A first-segment preview is a nice-to-have decoration (it depends on
+        # OpenPecha having a critical edition/segmentation for this text); a
+        # recitation session should still show up without one rather than
+        # being dropped entirely.
         preview = previews_by_text_id.get(text_id)
-        if preview is None:
-            continue
+        first_segment = None
+        if preview is not None:
+            first_segment_id, preview_content = preview
+            first_segment = RoutineFirstSegmentDTO(
+                id=first_segment_id,
+                content=preview_content,
+            )
 
-        first_segment_id, preview_content = preview
         resolved.append(
             SessionDTO(
                 id=session.id,
                 session_type=session.session_type,
-                source_id=UUID(text_id),
+                source_id=text_id,
                 title=text.title,
                 language=text.language or "en",
                 image=None,
                 display_order=session.display_order,
-                first_segment=RoutineFirstSegmentDTO(
-                    id=first_segment_id,
-                    content=preview_content,
-                ),
+                first_segment=first_segment,
             )
         )
     return resolved
@@ -688,8 +769,8 @@ def _resolve_recitation_collection_sessions(
     if not collection_sessions:
         return []
 
-    collection_ids = [session.source_id for session in collection_sessions]
-    
+    collection_ids = [_as_uuid(session.source_id) for session in collection_sessions]
+
     # Fetch collections owned by the user
     collections = (
         db.query(RecitationCollection)
@@ -700,11 +781,11 @@ def _resolve_recitation_collection_sessions(
         .all()
     )
     collection_map = {collection.id: collection for collection in collections}
-    
+
     # Get item counts for each collection
     from sqlalchemy import func
     from pecha_api.plans.users.recitation_collection.recitation_collection_models import RecitationCollectionItem
-    
+
     item_counts = dict(
         db.query(
             RecitationCollectionItem.recitation_collection_id,
@@ -717,7 +798,7 @@ def _resolve_recitation_collection_sessions(
 
     resolved = []
     for session in collection_sessions:
-        collection = collection_map.get(session.source_id)
+        collection = collection_map.get(_as_uuid(session.source_id))
         if collection is None:
             continue
         
@@ -730,7 +811,7 @@ def _resolve_recitation_collection_sessions(
             SessionDTO(
                 id=session.id,
                 session_type=session.session_type,
-                source_id=session.source_id,
+                source_id=str(session.source_id) if session.source_id is not None else None,
                 title=collection.name,
                 image=collection_image,
                 display_order=session.display_order,
@@ -749,7 +830,7 @@ def _resolve_group_recitation_collection_sessions(
 
     from sqlalchemy import func
 
-    collection_ids = [session.source_id for session in collection_sessions]
+    collection_ids = [_as_uuid(session.source_id) for session in collection_sessions]
     collections = (
         db.query(GroupRecitationCollection)
         .filter(
@@ -777,7 +858,7 @@ def _resolve_group_recitation_collection_sessions(
 
     resolved = []
     for session in collection_sessions:
-        collection = collection_map.get(session.source_id)
+        collection = collection_map.get(_as_uuid(session.source_id))
         if collection is None:
             continue
 
@@ -790,7 +871,7 @@ def _resolve_group_recitation_collection_sessions(
             SessionDTO(
                 id=session.id,
                 session_type=session.session_type,
-                source_id=session.source_id,
+                source_id=str(session.source_id) if session.source_id is not None else None,
                 title=collection.name,
                 image=collection_image,
                 display_order=session.display_order,
@@ -858,7 +939,7 @@ def _resolve_accumulator_sessions(
     if not accumulator_sessions:
         return []
 
-    preset_ids = [session.source_id for session in accumulator_sessions]
+    preset_ids = [_as_uuid(session.source_id) for session in accumulator_sessions]
     presets = (
         db.query(Accumulator)
         .filter(
@@ -879,7 +960,8 @@ def _resolve_accumulator_sessions(
 
     resolved = []
     for session in accumulator_sessions:
-        preset = preset_map.get(session.source_id)
+        preset_id = _as_uuid(session.source_id)
+        preset = preset_map.get(preset_id)
         if preset is None:
             continue
 
@@ -895,8 +977,8 @@ def _resolve_accumulator_sessions(
             SessionDTO(
                 id=session.id,
                 session_type=session.session_type,
-                source_id=session.source_id,
-                accumulator_id=session.source_id,
+                source_id=str(session.source_id) if session.source_id is not None else None,
+                accumulator_id=preset_id,
                 title=title,
                 language=session_language,
                 image=_accumulator_mala_image(db, preset),
@@ -956,7 +1038,7 @@ def _build_series_session_dto(
     return SessionDTO(
         id=session.id,
         session_type=session.session_type,
-        source_id=session.source_id,
+        source_id=str(session.source_id) if session.source_id is not None else None,
         title=metadata.title if metadata else "Untitled Series",
         language=_series_metadata_language(metadata),
         image=series_image,
@@ -978,7 +1060,7 @@ def _resolve_series_sessions(
     from pecha_api.plans.series.series_repository import get_series_by_ids
     from pecha_api.plans.users.plan_user_series_repository import get_plans_by_series_ids
 
-    series_ids = [session.source_id for session in series_sessions]
+    series_ids = [_as_uuid(session.source_id) for session in series_sessions]
     series_list = get_series_by_ids(db=db, series_ids=series_ids)
     series_map = {series.id: series for series in series_list}
 
@@ -1003,13 +1085,14 @@ def _resolve_series_sessions(
 
     resolved = []
     for session in series_sessions:
-        series = series_map.get(session.source_id)
+        series_id = _as_uuid(session.source_id)
+        series = series_map.get(series_id)
         if series is None:
             continue
 
-        first_plan = first_plan_map.get(session.source_id)
+        first_plan = first_plan_map.get(series_id)
         progress = progress_map.get(first_plan.id) if first_plan else None
-        current_plan = current_plan_map.get(session.source_id)
+        current_plan = current_plan_map.get(series_id)
         resolved.append(
             _build_series_session_dto(
                 session, series, first_plan, progress, current_plan, language=language
@@ -1117,7 +1200,6 @@ async def create_routine_with_time_block(
 ) -> RoutineWithTimeBlocksResponse:
 
     current_user = validate_and_extract_user_details(token=token)
-
     _validate_time_block_request(request)
     stored_timezone = normalize_timezone_name(timezone_name)
     effective_timezone = _resolve_effective_timezone(timezone_name)
@@ -1142,7 +1224,6 @@ async def create_routine_with_time_block(
             timezone_name=effective_timezone,
             time_int=request.time_int,
         )
-
         # Create routine
         routine = Routine(user_id=current_user.id, timezone=stored_timezone)
         saved_routine = save_routine(db=db, routine=routine)
@@ -1156,12 +1237,10 @@ async def create_routine_with_time_block(
             notification_enabled=request.notification_enabled,
         )
         saved_time_block = save_time_block(db=db, time_block=time_block)
-
         session_models = build_session_models(
             time_block_id=saved_time_block.id, sessions=prepared_sessions
         )
         saved_sessions = save_sessions(db=db, sessions=session_models)
-
         _enroll_plans(
             db=db, user_id=current_user.id, plan_ids=_extract_plan_ids(prepared_sessions)
         )
@@ -1188,7 +1267,6 @@ async def get_user_routine(
 ) -> RoutineResponse:
 
     current_user = validate_and_extract_user_details(token=token)
-
     with SessionLocal() as db:
         routine = get_routine_by_user_id(
             db=db, user_id=current_user.id, include_deleted=False
@@ -1201,7 +1279,6 @@ async def get_user_routine(
                     error=BAD_REQUEST, message=NO_ROUTINE_CREATED_FOR_USER
                 ).model_dump(),
             )
-
         time_blocks, total = get_time_blocks(
             db=db,
             routine_id=routine.id,
@@ -1216,7 +1293,6 @@ async def get_user_routine(
             return RoutineResponse(
                 id=routine.id, time_blocks=[], skip=skip, limit=limit, total=total
             )
-
         time_block_ids = [tb.id for tb in time_blocks]
         all_sessions = get_sessions_by_time_block_ids(
             db=db,
@@ -1225,7 +1301,6 @@ async def get_user_routine(
             order_desc=False,
         )
         sessions_by_block = group_sessions_by_block(all_sessions)
-
         time_block_dtos = [
             await build_time_block_dto(
                 db=db,
@@ -1237,7 +1312,6 @@ async def get_user_routine(
             )
             for tb in time_blocks
         ]
-
         return RoutineResponse(
             id=routine.id,
             time_blocks=time_block_dtos,

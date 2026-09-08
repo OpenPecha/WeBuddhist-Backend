@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 from typing import Annotated, Optional
 from uuid import UUID
@@ -15,23 +16,30 @@ from pecha_api.chat.member_service import (
     remove_room_member_service,
 )
 from pecha_api.chat.message_service import (
+    add_message_reaction_service,
     delete_message_service,
     list_room_messages_service,
+    remove_message_reaction_service,
+    report_message_service,
     send_direct_message_service,
     send_group_message_service,
 )
 from pecha_api.chat.response_models import (
+    AddChatMessageReactionRequest,
     AddChatRoomMembersRequest,
     ChatMessageDTO,
+    ChatMessageReactionDTO,
     ChatMessagesResponse,
     ChatPeopleResponse,
     ChatRoomDTO,
     ChatRoomMembersResponse,
     ChatRoomsResponse,
+    ReportChatMessageRequest,
     SendChatMessageRequest,
     UpdateChatRoomRequest,
 )
 from pecha_api.chat.service import (
+    _sender_name,
     get_room_detail_service,
     list_group_people_service,
     list_my_rooms_service,
@@ -45,6 +53,19 @@ logger = logging.getLogger(__name__)
 oauth2_scheme = HTTPBearer()
 
 chat_router = APIRouter(tags=["Chat"])
+
+
+async def _broadcast_reactions_safe(room_id: UUID, message_id: UUID, reactions) -> None:
+    """Push a reactions_updated event to the room's live stream. Best-effort:
+    the reaction is already persisted, so a broadcast failure must not fail
+    the request."""
+    try:
+        broadcaster = get_broadcaster()
+        await broadcaster.broadcast_reactions(
+            room_id=room_id, message_id=message_id, reactions=reactions
+        )
+    except Exception as e:
+        logger.error(f"Failed to broadcast reactions for message {message_id}: {e}")
 
 
 @chat_router.get(
@@ -126,18 +147,113 @@ def list_room_messages(
     return list_room_messages_service(room_id=room_id, user=user, skip=skip, limit=limit)
 
 
+async def _broadcast_message_deleted_safe(
+    room_id: UUID, message_id: UUID, deleted_by: dict, deleted_at: str
+) -> None:
+    """Push a message_deleted event to the room's live stream. Best-effort:
+    the deletion is already persisted, so a broadcast failure must not fail
+    the request."""
+    try:
+        broadcaster = get_broadcaster()
+        await broadcaster.broadcast_message_deleted(
+            room_id=room_id,
+            message_id=message_id,
+            deleted_by=deleted_by,
+            deleted_at=deleted_at,
+        )
+    except Exception as e:
+        logger.error(f"Failed to broadcast deletion for message {message_id}: {e}")
+
+
 @chat_router.delete(
     "/chat/rooms/{room_id}/messages/{message_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def delete_room_message(
+async def delete_room_message(
     room_id: UUID,
     message_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
-    """Soft-delete a message. Only the sender can delete their own message."""
+    """Soft-delete a message. Only the sender can delete their own message.
+    Broadcasts a message_deleted event so every connected client can grey it
+    out live, WhatsApp-style."""
     user = validate_and_extract_user_details(token=authentication_credential.credentials)
-    delete_message_service(room_id=room_id, message_id=message_id, user=user)
+    deleted_at = delete_message_service(room_id=room_id, message_id=message_id, user=user)
+    await _broadcast_message_deleted_safe(
+        room_id=room_id,
+        message_id=message_id,
+        deleted_by={
+            "user_id": str(user.id),
+            "email": user.email,
+            "name": _sender_name(user),
+        },
+        deleted_at=deleted_at,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@chat_router.post(
+    "/chat/rooms/{room_id}/messages/{message_id}/reactions",
+    status_code=status.HTTP_200_OK,
+    response_model=list[ChatMessageReactionDTO],
+)
+async def add_message_reaction(
+    room_id: UUID,
+    message_id: UUID,
+    request: AddChatMessageReactionRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    """React to a message with an emoji (idempotent). Active member only.
+    Returns the message's updated reaction summary."""
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
+    reactions = add_message_reaction_service(
+        room_id=room_id, message_id=message_id, user=user, emoji=request.emoji
+    )
+    await _broadcast_reactions_safe(room_id=room_id, message_id=message_id, reactions=reactions)
+    return reactions
+
+
+@chat_router.delete(
+    "/chat/rooms/{room_id}/messages/{message_id}/reactions/{emoji}",
+    status_code=status.HTTP_200_OK,
+    response_model=list[ChatMessageReactionDTO],
+)
+async def remove_message_reaction(
+    room_id: UUID,
+    message_id: UUID,
+    emoji: str,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    """Remove the caller's emoji reaction from a message (idempotent).
+    Returns the message's updated reaction summary."""
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
+    reactions = remove_message_reaction_service(
+        room_id=room_id, message_id=message_id, user=user, emoji=emoji
+    )
+    await _broadcast_reactions_safe(room_id=room_id, message_id=message_id, reactions=reactions)
+    return reactions
+
+
+@chat_router.post(
+    "/chat/rooms/{room_id}/messages/{message_id}/report",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def report_message(
+    room_id: UUID,
+    message_id: UUID,
+    request: ReportChatMessageRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    """Report a message for moderation. Active member only; one report per
+    user per message; you cannot report your own message."""
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
+    report_message_service(
+        room_id=room_id,
+        message_id=message_id,
+        user=user,
+        reason=request.reason,
+        description=request.description,
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -152,9 +268,15 @@ def send_group_chat_message(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
     """Send a message to a group's chat room. Auto-creates the room (caller
-    becomes CREATOR) on the first message from an eligible group joiner/follower."""
+    becomes CREATOR) on the first message from an eligible group joiner/follower.
+    Pass parent_message_id in the body to send it as a reply."""
     user = validate_and_extract_user_details(token=authentication_credential.credentials)
-    return send_group_message_service(group_id=group_id, user=user, body=request.body)
+    return send_group_message_service(
+        group_id=group_id,
+        user=user,
+        body=request.body,
+        parent_message_id=request.parent_message_id,
+    )
 
 
 @chat_router.post(
@@ -168,9 +290,14 @@ def send_direct_chat_message(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
     """Send a direct message to another user. Auto-creates (and reuses) the
-    normalized-pair DM room."""
+    normalized-pair DM room. Pass parent_message_id in the body to send it as a reply."""
     user = validate_and_extract_user_details(token=authentication_credential.credentials)
-    return send_direct_message_service(receiver_id=user_id, user=user, body=request.body)
+    return send_direct_message_service(
+        receiver_id=user_id,
+        user=user,
+        body=request.body,
+        parent_message_id=request.parent_message_id,
+    )
 
 
 @chat_router.get(
@@ -248,12 +375,13 @@ async def websocket_chat_live(
     chat) or receiver_id (DM) — the room is resolved/auto-created on connect.
 
     Client -> server messages:
-      {"type": "message", "body": "..."}
+      {"type": "message", "body": "...", "parent_message_id": "..."}   (parent_message_id optional; makes it a reply)
       {"type": "typing", "is_typing": true|false}   (ephemeral, not persisted)
 
     Server -> client events:
       {"type": "room_info", "room_id": "..."}   (sent once, right after connect)
       {"type": "message_created", "message": {...}}
+      {"type": "reactions_updated", "message_id": "...", "reactions": [{"emoji": "...", "count": N, "user_ids": [...]}]}
       {"type": "typing", "user_id": "...", "email": "...", "is_typing": true|false}
       {"type": "presence", "count": N, "online": [{"user_id": "...", "email": "..."}]}
       {"type": "error", "code": "...", "message": "..."}
@@ -294,6 +422,7 @@ async def websocket_chat_live(
 
         from pecha_api.db.database import SessionLocal
         from pecha_api.chat.service import (
+            _get_room_or_404,
             _require_active_member,
             resolve_or_create_group_room,
             resolve_or_create_private_room,
@@ -322,7 +451,12 @@ async def websocket_chat_live(
         await broadcaster.add_connection(room_id, user.id, user.email, websocket)
         await broadcaster.broadcast_presence(room_id)
 
+        # Tells the cleanup below to close the socket rather than leave it open.
+        room_unreachable = False
+        closed_remotely = asyncio.Event()
+
         async def listen_redis():
+            nonlocal room_unreachable
             try:
                 async for message in pubsub.listen():
                     if message["type"] == "message":
@@ -330,6 +464,15 @@ async def websocket_chat_live(
                             await websocket.send_text(message["data"])
                         except (ConnectionClosedOK, ConnectionClosedError):
                             break
+                        # Published when the group is hidden, so every server
+                        # drops its own sockets for this room.
+                        try:
+                            if json.loads(message["data"]).get("type") == "room_closed":
+                                room_unreachable = True
+                                closed_remotely.set()
+                                break
+                        except (ValueError, TypeError):
+                            pass
             except Exception as e:
                 logger.error(f"Error listening to Redis: {e}")
 
@@ -337,11 +480,26 @@ async def websocket_chat_live(
 
         try:
             while True:
-                data = await websocket.receive_json()
+                # Race the next frame against eviction, so a hidden group
+                # drops idle sockets too.
+                receive_task = asyncio.create_task(websocket.receive_json())
+                closed_task = asyncio.create_task(closed_remotely.wait())
+                done, pending = await asyncio.wait(
+                    {receive_task, closed_task},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                for task in pending:
+                    task.cancel()
+                if closed_task in done:
+                    receive_task.cancel()
+                    break
+                data = receive_task.result()
 
                 if data.get("type") == "typing":
                     try:
                         with SessionLocal() as db:
+                            # Carries the group-publication gate.
+                            _get_room_or_404(db=db, room_id=room_id)
                             _require_active_member(db=db, room_id=room_id, user_id=user.id)
                         await broadcaster.broadcast_typing(
                             room_id,
@@ -355,6 +513,9 @@ async def websocket_chat_live(
                             "code": e.detail if isinstance(e.detail, str) else "ERROR",
                             "message": e.detail if isinstance(e.detail, str) else str(e.detail),
                         })
+                        # Room no longer reachable: end the session.
+                        room_unreachable = True
+                        break
                     except Exception as e:
                         logger.error(f"Failed to broadcast typing indicator: {e}")
                     continue
@@ -367,22 +528,49 @@ async def websocket_chat_live(
                     })
                     continue
 
+                raw_parent_id = data.get("parent_message_id")
+                try:
+                    parent_message_id = UUID(str(raw_parent_id)) if raw_parent_id else None
+                except (ValueError, TypeError):
+                    await websocket.send_json({
+                        "type": "error",
+                        "code": "INVALID_PARENT_MESSAGE_ID",
+                        "message": "parent_message_id must be a valid UUID",
+                    })
+                    continue
+
                 try:
                     if group_id is not None:
                         message_dto = send_group_message_service(
-                            group_id=group_id, user=user, body=data.get("body", "")
+                            group_id=group_id,
+                            user=user,
+                            body=data.get("body", ""),
+                            parent_message_id=parent_message_id,
                         )
                     else:
                         message_dto = send_direct_message_service(
-                            receiver_id=receiver_id, user=user, body=data.get("body", "")
+                            receiver_id=receiver_id,
+                            user=user,
+                            body=data.get("body", ""),
+                            parent_message_id=parent_message_id,
                         )
                 except HTTPException as e:
                     logger.error(f"Message send failed: {e.detail}")
-                    await websocket.send_json({
-                        "type": "error",
-                        "code": e.detail if isinstance(e.detail, str) else "ERROR",
-                        "message": e.detail if isinstance(e.detail, str) else str(e.detail),
-                    })
+                    if isinstance(e.detail, dict) and "code" in e.detail:
+                        # Structured rejection (e.g. INAPPROPRIATE_LANGUAGE) with
+                        # its own code/message fields
+                        await websocket.send_json({"type": "error", **e.detail})
+                    else:
+                        await websocket.send_json({
+                            "type": "error",
+                            "code": e.detail if isinstance(e.detail, str) else "ERROR",
+                            "message": e.detail if isinstance(e.detail, str) else str(e.detail),
+                        })
+                    # 404 means the room is gone; other rejections (profanity,
+                    # bad parent id) are per-message and keep the socket usable.
+                    if e.status_code == status.HTTP_404_NOT_FOUND:
+                        room_unreachable = True
+                        break
                     continue
 
                 try:
@@ -401,6 +589,12 @@ async def websocket_chat_live(
                 await pubsub.unsubscribe(f"chat:room:{room_id}:messages")
             except Exception as e:
                 logger.error(f"Error unsubscribing from Redis: {e}")
+            if room_unreachable:
+                # Ended by eviction, not by the client, so close it here.
+                try:
+                    await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                except Exception:
+                    pass
 
     except Exception as e:
         logger.error(f"WebSocket error: {e}")

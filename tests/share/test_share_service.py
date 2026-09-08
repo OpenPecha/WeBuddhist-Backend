@@ -17,9 +17,11 @@ from pecha_api.share.share_response_models import (
     ShareRequest
 )
 from pecha_api.share.share_enums import TextColor, BgColor
-from pecha_api.texts.segments.segments_service import SegmentDTO
+from pecha_api.texts.segments.segments_response_models import (
+    V2SegmentResponse,
+    V2SegmentTextDetail,
+)
 from pecha_api.texts.texts_response_models import TextDTO
-from pecha_api.texts.segments.segments_enum import SegmentType
 
 
 @pytest.mark.asyncio
@@ -72,7 +74,7 @@ async def test_generate_short_url_with_logo():
     )
     
     with patch("pecha_api.share.share_service.get_short_url", new_callable=AsyncMock) as mock_short_url, \
-         patch("pecha_api.share.share_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.share.share_service.get_text_by_id_from_openpecha", new_callable=AsyncMock, return_value=mock_text_detail), \
          patch("pecha_api.share.share_service.generate_segment_image") as mock_generate_image:
         
         mock_short_url.return_value = mock_short_url_response
@@ -90,38 +92,25 @@ async def test_generate_short_url_with_logo():
 async def test_generate_short_url_for_segment_content_success():
     share_request = ShareRequest(
         url="https://pecha.io/share/123",
-        segment_id="id_1",
+        segment_id="em5HPUEMRke2e0Qs2519J",
+        text_id="text_1",
         language="en",
     )
     mock_short_url_response = ShortUrlResponse(
         shortUrl="https://pecha.io/share/123"
     )
-    mock_segment_details = SegmentDTO(
-        id="id_1",
-        text_id="text_1",
+    mock_segment_details = V2SegmentResponse(
+        segment_id="em5HPUEMRke2e0Qs2519J",
         content="content_1",
-        mapping=[],
-        type=SegmentType.SOURCE
-    )
-    mock_text_detail = TextDTO(
-        id="text_1",
-        title="title_1",
-        language="en",
-        type="version",
-        group_id="group_1",
-        is_published=True,
-        created_date="2021-01-01",
-        updated_date="2021-01-01",
-        published_date="2021-01-01",
-        published_by="user_1",
-        categories=[],
-        views=0
+        text=V2SegmentTextDetail(
+            text_id="text_1",
+            title="title_1",
+            language="en",
+        ),
     )
     
     with patch("pecha_api.share.share_service.get_short_url", new_callable=AsyncMock, return_value=mock_short_url_response), \
-         patch("pecha_api.share.share_service.SegmentUtils.validate_segment_exists", new_callable=AsyncMock, return_value=True), \
-         patch("pecha_api.share.share_service.get_segment_details_by_id", new_callable=AsyncMock, return_value=mock_segment_details), \
-         patch("pecha_api.share.share_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.share.share_service.get_openpecha_segment_details_by_id", new_callable=AsyncMock, return_value=mock_segment_details), \
          patch("pecha_api.share.share_service.generate_segment_image") as mock_generate_image:
         
         response = await generate_short_url(share_request=share_request)
@@ -159,7 +148,7 @@ async def test_generate_short_url_without_segment_id():
     )
     
     with patch("pecha_api.share.share_service.get_short_url", new_callable=AsyncMock, return_value=mock_short_url_response), \
-         patch("pecha_api.share.share_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.share.share_service.get_text_by_id_from_openpecha", new_callable=AsyncMock, return_value=mock_text_detail), \
          patch("pecha_api.share.share_service.generate_segment_image") as mock_generate_image:
         
         response = await generate_short_url(share_request=share_request)
@@ -192,40 +181,33 @@ def test_generate_logo_image():
 async def test_generate_segment_content_image_with_segment():
     share_request = ShareRequest(
         text_id="text_1",
-        segment_id="seg_1",
+        segment_id="em5HPUEMRke2e0Qs2519J",
         language="en",
         text_color=TextColor.BLACK,
         bg_color=BgColor.DEFAULT
     )
-    mock_text_detail = TextDTO(
-        id="text_1",
-        title="Test Title",
-        language="en",
-        type="version",
-        group_id="group_1",
-        is_published=True,
-        created_date="2021-01-01",
-        updated_date="2021-01-01",
-        published_date="2021-01-01",
-        published_by="user_1",
-        categories=[],
-        views=0
-    )
-    mock_segment = SegmentDTO(
-        id="seg_1",
-        text_id="text_1",
+    mock_segment = V2SegmentResponse(
+        segment_id="em5HPUEMRke2e0Qs2519J",
         content="Test segment content",
-        mapping=[],
-        type=SegmentType.SOURCE
+        text=V2SegmentTextDetail(
+            text_id="text_1",
+            title="Test Title",
+            language="en",
+        ),
     )
     
-    with patch("pecha_api.share.share_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
-         patch("pecha_api.share.share_service.SegmentUtils.validate_segment_exists", new_callable=AsyncMock), \
-         patch("pecha_api.share.share_service.get_segment_details_by_id", new_callable=AsyncMock, return_value=mock_segment), \
-         patch("pecha_api.share.share_service.generate_segment_image") as mock_generate_image:
-        
+    with patch(
+        "pecha_api.share.share_service.get_openpecha_segment_details_by_id",
+        new_callable=AsyncMock,
+        return_value=mock_segment,
+    ) as mock_get_segment, patch(
+        "pecha_api.share.share_service.generate_segment_image"
+    ) as mock_generate_image:
         await _generate_segment_content_image_(share_request)
         
+        mock_get_segment.assert_awaited_once_with(
+            segment_id="em5HPUEMRke2e0Qs2519J",
+        )
         mock_generate_image.assert_called_once_with(
             text="Test segment content",
             ref_str="Test Title",
@@ -259,7 +241,7 @@ async def test_generate_segment_content_image_without_segment():
         views=0
     )
     
-    with patch("pecha_api.share.share_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+    with patch("pecha_api.share.share_service.get_text_by_id_from_openpecha", new_callable=AsyncMock, return_value=mock_text_detail), \
          patch("pecha_api.share.share_service.generate_segment_image") as mock_generate_image:
         
         await _generate_segment_content_image_(share_request)

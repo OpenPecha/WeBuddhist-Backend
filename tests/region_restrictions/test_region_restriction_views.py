@@ -44,7 +44,7 @@ def test_get_cms_china_restriction_candidates_delegates_to_service():
     expected = ChinaRestrictionCandidateListResponse(
         items=[
             ChinaRestrictionCandidateDTO(
-                id=uuid.uuid4(),
+                id=str(uuid.uuid4()),
                 title="Morning Practice",
             )
         ],
@@ -76,7 +76,7 @@ def test_get_cms_china_restriction_candidates_delegates_to_service():
 
 
 def test_post_cms_china_restricted_item_delegates_to_service():
-    item_id = uuid.uuid4()
+    item_id = str(uuid.uuid4())
     row_id = uuid.uuid4()
     body = CreateChinaRestrictedItemRequest(
         item_type=RestrictedItemType.PLAN,

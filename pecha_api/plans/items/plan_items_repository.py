@@ -16,12 +16,15 @@ from .plan_items_response_models import ItemDayNumberDTO
 logger = logging.getLogger(__name__)
 
 
-def save_plan_items(db: Session, plan_items: List[PlanItem]):
+def save_plan_items(db: Session, plan_items: List[PlanItem], commit: bool = True):
     try:
         db.add_all(plan_items)
-        db.commit()
-        for item in plan_items:
-            db.refresh(item)
+        if commit:
+            db.commit()
+            for item in plan_items:
+                db.refresh(item)
+        else:
+            db.flush()
         return plan_items
     except IntegrityError as e:
         db.rollback()

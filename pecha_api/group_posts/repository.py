@@ -152,3 +152,45 @@ def soft_delete_post(db: Session, post: GroupPost, deleted_by: str) -> None:
     post.deleted_at = datetime.now(timezone.utc)
     post.deleted_by = deleted_by
     db.commit()
+
+
+def mark_post_notification_dispatched(
+    db: Session,
+    post_id: UUID,
+    sqs_message_id: str,
+) -> Optional[GroupPost]:
+    post = (
+        db.query(GroupPost)
+        .filter(
+            GroupPost.id == post_id,
+            GroupPost.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if not post:
+        return None
+    post.notification_sqs_message_id = sqs_message_id
+    post.notification_dispatched_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(post)
+    return post
+
+
+def list_undispatched_group_post_notifications(
+    db: Session,
+    *,
+    older_than: datetime,
+    limit: int,
+) -> List[GroupPost]:
+    return (
+        db.query(GroupPost)
+        .filter(
+            GroupPost.deleted_at.is_(None),
+            GroupPost.status == GroupPostStatus.PUBLISHED,
+            GroupPost.notification_sqs_message_id.is_(None),
+            GroupPost.created_at <= older_than,
+        )
+        .order_by(GroupPost.created_at.asc())
+        .limit(limit)
+        .all()
+    )

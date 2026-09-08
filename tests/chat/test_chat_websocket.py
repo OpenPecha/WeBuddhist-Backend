@@ -13,6 +13,7 @@ def _message_dto(room_id) -> ChatMessageDTO:
         room_id=room_id,
         sender_id=uuid4(),
         sender_email="sender@example.com",
+        sender_name="Sender Name",
         body="Hello",
         created_at=datetime.now(tz.utc).isoformat(),
     )

@@ -34,7 +34,6 @@ from pecha_api.texts.texts_service import (
 )
 from pecha_api.texts.segments.segments_response_models import SegmentDTO
 from pecha_api.texts.segments.segments_enum import SegmentType
-from pecha_api.terms.terms_response_models import TermsModel
 from pecha_api.texts.texts_response_models import (
     CreateTextRequest,
     TextDTO,

@@ -69,6 +69,8 @@ def generate_token_data(user: Users):
     }
     if user.email:
         data["email"] = user.email
+    if user.phone_number:
+        data["phone_number"] = user.phone_number
     return data
 
 

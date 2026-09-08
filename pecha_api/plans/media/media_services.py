@@ -15,9 +15,8 @@ from ...plans.response_message import (
     INVALID_FILE_FORMAT,
     FILE_TOO_LARGE
 )
-from ...texts.texts_models import Text
+from ...texts.texts_openpecha_service import get_text_by_id_from_openpecha
 from .media_repository import create_text_image
-from ...error_contants import ErrorConstants
 from ...db.database import SessionLocal
 
 
@@ -196,14 +195,33 @@ def upload_series_image(token: str, series_id: Optional[str], file: UploadFile) 
     )
 
 
+def upload_poem_image(token: str, poem_id: Optional[str], file: UploadFile) -> PlanUploadResponse:
+    validate_and_extract_author_details(token=token)
+    validate_file(file)
+
+    unique_id = str(uuid.uuid4())
+    path = "images/poem_images"
+    image_path_full = f"{path}/{poem_id}/{unique_id}" if poem_id is not None else f"{path}/{unique_id}"
+
+    image_url_model, original_key = prepare_image_upload(
+        file=file,
+        image_path_full=image_path_full,
+    )
+
+    return PlanUploadResponse(
+        image=image_url_model,
+        key=original_key,
+        path=image_path_full,
+        message=IMAGE_UPLOAD_SUCCESS,
+    )
+
+
 async def upload_text_image(token: str, text_id: str, file: UploadFile) -> TextImageUploadResponse:
 
     validate_and_extract_author_details(token=token)
     validate_file(file)
 
-    text_details = await Text.get_text(text_id=text_id)
-    if not text_details:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE)
+    await get_text_by_id_from_openpecha(text_id=text_id)
 
     unique_id = str(uuid.uuid4())
     path = "images/text_images"

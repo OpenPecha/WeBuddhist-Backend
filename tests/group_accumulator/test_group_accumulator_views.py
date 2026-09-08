@@ -110,7 +110,7 @@ class TestGetGroupAccumulators:
     def test_get_group_accumulators_success(self, mock_service):
         """Test successful retrieval of group accumulators."""
         group_id = uuid4()
-        text_id = uuid4()
+        text_id = str(uuid4())
         mantra_id = uuid4()
         accumulators = [
             TestDataFactory.create_group_accumulator_dto(

@@ -16,16 +16,17 @@ def resolve_public_group_scope(
     user_id: UUID,
     should_include_unfollowed: bool,
 ) -> Tuple[List[UUID], Set[UUID]]:
-    """Return public group IDs to list and the user's joined public IDs."""
-    joined_ids = get_joined_group_ids_by_user(db=db, user_id=user_id)
-    public_joined_ids = [
-        group.id
-        for group in get_groups_by_ids(db=db, group_ids=joined_ids)
-        if group.is_public
+    """Return the group IDs to list and the user's joined IDs.
+
+    A joined group counts regardless of visibility; unjoined groups only when
+    they are public."""
+    joined_ids = [
+        group.id for group in get_groups_by_ids(db=db, group_ids=get_joined_group_ids_by_user(db=db, user_id=user_id))
     ]
-    joined_set = set(public_joined_ids)
+    joined_set = set(joined_ids)
 
     if not should_include_unfollowed:
-        return public_joined_ids, joined_set
+        return joined_ids, joined_set
 
-    return get_public_group_ids(db=db), joined_set
+    discoverable = get_public_group_ids(db=db)
+    return list({*discoverable, *joined_ids}), joined_set

@@ -16,6 +16,54 @@ def _date_to_datetime_utc(d: date) -> datetime:
     return datetime(d.year, d.month, d.day, tzinfo=timezone.utc)
 
 
+def combine_date_with_time_of_day(occurrence_date: date, reference: datetime) -> datetime:
+    """
+    Apply the wall-clock time-of-day carried by `reference` onto `occurrence_date`.
+
+    A recurring event's rule only pins a day/month, not a time of day, so the
+    time has to come from elsewhere: the datetime the client sent alongside
+    the rule (create/update), or the template event's own stored start/end
+    when expanding future occurrences for a listing. `reference` is
+    normalized to UTC first since Event.start_date/end_date are always
+    persisted in UTC.
+    """
+    reference_utc = (
+        reference.astimezone(timezone.utc)
+        if reference.tzinfo is not None
+        else reference.replace(tzinfo=timezone.utc)
+    )
+    return datetime(
+        occurrence_date.year,
+        occurrence_date.month,
+        occurrence_date.day,
+        reference_utc.hour,
+        reference_utc.minute,
+        reference_utc.second,
+        reference_utc.microsecond,
+        tzinfo=timezone.utc,
+    )
+
+
+def combine_occurrence_window(
+    start_d: date, end_d: date, template_start: datetime, template_end: datetime
+) -> tuple[datetime, datetime]:
+    """Combine an occurrence's calendar dates with the template's time-of-day.
+
+    Write-time validation (see `_validate_date_range` calls in event_service)
+    rejects new templates whose start/end time-of-day would invert a one-day
+    (start_d == end_d) occurrence, but that guard can't fix templates that
+    were already persisted before it existed. Clamping end to start here
+    keeps every read path (event lists, featured events, group feeds) from
+    ever surfacing end_date < start_date, regardless of how the underlying
+    row got into that state.
+    """
+    occurrence_start = combine_date_with_time_of_day(start_d, template_start)
+    occurrence_end = combine_date_with_time_of_day(end_d, template_end)
+    if occurrence_end < occurrence_start:
+        occurrence_end = occurrence_start
+    return occurrence_start, occurrence_end
+
+
 def _resolve_gregorian_yearly(
     month: int,
     day: int,

@@ -369,6 +369,24 @@ def test_bookmark_exists_invalid_uuid():
     assert response.status_code == 422
 
 
+def test_bookmark_exists_text_type_allows_non_uuid_source_id():
+    openpecha_text_id = "48q7hw4yg2R9PUS5J8CNH"
+    mock_response = BookmarkExistsResponse(exists=False)
+
+    with patch("pecha_api.bookmarks.bookmark_views.bookmark_exists_service") as mock_service:
+        mock_service.return_value = mock_response
+
+        response = client.get(
+            f"/users/me/bookmarks/exists?type=TEXT&source_id={openpecha_text_id}",
+            headers={"Authorization": "Bearer test_token"},
+        )
+
+        assert response.status_code == 200
+        call_kwargs = mock_service.call_args.kwargs
+        assert call_kwargs["bookmark_exists_query"].type == BookmarkType.TEXT
+        assert call_kwargs["bookmark_exists_query"].source_id == openpecha_text_id
+
+
 def test_bookmark_exists_unauthorized():
     response = client.get(
         f"/users/me/bookmarks/exists?type=PLAN&source_id={uuid4()}",

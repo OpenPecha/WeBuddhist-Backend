@@ -200,7 +200,7 @@ def audio_env(text_audio_model, text_audio_otr_model):
          ) as transcode, \
          patch(f"{SERVICE}.delete_file") as delete, \
          patch(f"{SERVICE}.generate_presigned_access_url") as presigned_url, \
-         patch(f"{SERVICE}.Text.get_text", new_callable=AsyncMock) as get_text, \
+         patch(f"{SERVICE}.get_text_by_id_from_openpecha", new_callable=AsyncMock) as get_text, \
          patch(f"{SERVICE}.TextAudio", text_audio_model), \
          patch(f"{SERVICE}.TextAudioOtr", text_audio_otr_model), \
          patch(f"{SERVICE}.uuid.uuid4", return_value=GENERATED_UUID):
@@ -338,7 +338,9 @@ class TestGetRequiredText:
 
     @pytest.mark.asyncio
     async def test_missing_text_raises_not_found(self, audio_env):
-        audio_env.get_text.return_value = None
+        audio_env.get_text.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Text not found."
+        )
 
         with pytest.raises(HTTPException) as exc:
             await get_required_text(text_id=TEXT_ID)
@@ -402,7 +404,9 @@ class TestGetTextAudios:
 
     @pytest.mark.asyncio
     async def test_missing_text_raises_not_found(self, audio_env):
-        audio_env.get_text.return_value = None
+        audio_env.get_text.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Text not found."
+        )
 
         with pytest.raises(HTTPException) as exc:
             await get_text_audios(token=VALID_TOKEN, text_id=TEXT_ID)
@@ -563,7 +567,9 @@ class TestGetTextSegmentsInOrder:
 
     @pytest.mark.asyncio
     async def test_missing_text_raises_not_found(self, audio_env):
-        audio_env.get_text.return_value = None
+        audio_env.get_text.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Text not found."
+        )
 
         with pytest.raises(HTTPException) as exc:
             await get_text_segments_in_order(token=VALID_TOKEN, text_id=TEXT_ID)
@@ -659,7 +665,9 @@ class TestUploadTextAudio:
 
     @pytest.mark.asyncio
     async def test_nothing_is_uploaded_when_the_text_is_missing(self, audio_env):
-        audio_env.get_text.return_value = None
+        audio_env.get_text.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Text not found."
+        )
         file = _upload_file()
 
         with pytest.raises(HTTPException) as exc:
@@ -729,7 +737,9 @@ class TestUpdateTextAudioName:
 
     @pytest.mark.asyncio
     async def test_missing_text_raises_not_found(self, audio_env):
-        audio_env.get_text.return_value = None
+        audio_env.get_text.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Text not found."
+        )
 
         with pytest.raises(HTTPException) as exc:
             await update_text_audio_name(
@@ -787,7 +797,9 @@ class TestDeleteTextAudio:
 
     @pytest.mark.asyncio
     async def test_missing_text_raises_not_found(self, audio_env):
-        audio_env.get_text.return_value = None
+        audio_env.get_text.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Text not found."
+        )
 
         with pytest.raises(HTTPException) as exc:
             await delete_text_audio(

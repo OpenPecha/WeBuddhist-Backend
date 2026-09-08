@@ -69,6 +69,7 @@ def generate_user_info_response(user: Users) -> Optional[UserInfoResponse]:
                 social_media_profiles.append(social_media_profile)
 
             user_info_response = UserInfoResponse(
+                id=user.id,
                 firstname=user.firstname,
                 lastname=user.lastname,
                 username=user.username,

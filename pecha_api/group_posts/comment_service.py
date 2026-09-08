@@ -10,6 +10,7 @@ from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.groups.groups_repository import get_group_by_id
 from pecha_api.plans.response_message import NOT_FOUND
+from pecha_api.group_posts.service_utils import validate_group_content_access
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.users.users_models import Users
 
@@ -91,14 +92,8 @@ def build_comment_dto(
     )
 
 
-def _validate_group_is_public(db: Session, group_id: UUID) -> None:
-    """Validate that group exists and is public."""
-    group = get_group_by_id(db=db, group_id=group_id)
-    if not group or not group.is_public:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=NOT_FOUND,
-        )
+def _validate_group_access(db: Session, group_id: UUID, user_id: Optional[UUID]) -> None:
+    validate_group_content_access(db=db, group_id=group_id, user_id=user_id)
 
 
 def _get_and_validate_post(db: Session, post_id: UUID) -> tuple:
@@ -121,7 +116,7 @@ def list_post_comments_service(
     """Public list of comments on a post."""
     with SessionLocal() as db:
         post, group_id = _get_and_validate_post(db, post_id)
-        _validate_group_is_public(db, group_id)
+        _validate_group_access(db, group_id, user_id)
 
         comments, total = get_post_comments(
             db=db,
@@ -163,7 +158,7 @@ def create_post_comment_service(
     """Create a top-level comment or a reply to any comment on the post."""
     with SessionLocal() as db:
         post, group_id = _get_and_validate_post(db, post_id)
-        _validate_group_is_public(db, group_id)
+        _validate_group_access(db, group_id, user_id)
 
         if parent_comment_id is not None:
             parent_comment = get_comment_by_id(
@@ -203,7 +198,7 @@ def delete_post_comment_service(
 
         # Validate post and group
         post, group_id = _get_and_validate_post(db, comment.post_id)
-        _validate_group_is_public(db, group_id)
+        _validate_group_access(db, group_id, user_id)
 
         if comment.user_id != user_id:
             raise HTTPException(

@@ -13,3 +13,9 @@ class TodayChantCompletionsResponse(BaseModel):
     """Response containing list of completed chant IDs for today"""
     completed_chant_ids: List[UUID]
     date: str
+
+
+class ChantCompletionDayCountResponse(BaseModel):
+    """Response containing the number of unique days the user completed at least one chant in the collection"""
+    collection_id: UUID
+    day_count: int

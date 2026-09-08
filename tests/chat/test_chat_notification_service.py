@@ -27,11 +27,12 @@ from pecha_api.chat.sqs_client import (
 
 
 class MockUser:
-    def __init__(self, user_id=None, email="user@example.com", firstname="Alice", lastname="Doe"):
+    def __init__(self, user_id=None, email="user@example.com", firstname="Alice", lastname="Doe", avatar_url=None):
         self.id = user_id or uuid4()
         self.email = email
         self.firstname = firstname
         self.lastname = lastname
+        self.avatar_url = avatar_url
 
 
 class MockMember:

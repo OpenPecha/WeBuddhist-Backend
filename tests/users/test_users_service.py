@@ -1,5 +1,6 @@
 import jose
 import pytest
+from uuid import uuid4
 from jose.exceptions import JWTClaimsError
 from jwt import ExpiredSignatureError
 from starlette import status
@@ -24,6 +25,7 @@ import io
 async def test_get_user_info_success():
     token = "valid_token"
     user = Users(
+        id=uuid4(),
         firstname="John",
         lastname="Doe",
         username="johndoe",
@@ -49,6 +51,7 @@ async def test_get_user_info_success():
 async def test_get_user_info_with_social_accounts():
     token = "valid_token"
     user = Users(
+        id=uuid4(),
         firstname="John",
         lastname="Doe",
         username="johndoe",
@@ -102,6 +105,7 @@ def test_update_user_info_success():
         social_profiles=[]
     )
     user = Users(
+        id=uuid4(),
         firstname="John",
         lastname="Doe",
         username="johndoe",
@@ -155,6 +159,7 @@ def test_update_user_info_500_db_error():
         social_profiles=[]
     )
     user = Users(
+        id=uuid4(),
         firstname="John",
         lastname="Doe",
         username="johndoe",
@@ -569,6 +574,7 @@ async def test_get_user_info_cache_none_success():
     })
 
     mock_user_info_response = UserInfoResponse(
+        id=uuid4(),
         firstname="tenzin",
         lastname="tenzin",
         username="tenzin123",
@@ -603,6 +609,7 @@ async def test_fetch_user_by_email_success():
     })
 
     mock_user_info_response = UserInfoResponse(
+        id=uuid4(),
         firstname="tenzin",
         lastname="tenzin",
         username="tenzin123",
@@ -660,6 +667,7 @@ async def test_get_user_info_by_username_success():
     )
     
     expected_response = UserInfoResponse(
+        id=uuid4(),
         firstname="John",
         lastname="Doe",
         username="johndoe",
@@ -746,6 +754,7 @@ async def test_get_user_info_by_username_with_social_profiles():
     )
     
     expected_response = UserInfoResponse(
+        id=uuid4(),
         firstname="Social",
         lastname="User",
         username="socialuser",

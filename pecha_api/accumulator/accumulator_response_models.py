@@ -74,7 +74,7 @@ class AccumulatorDTO(BaseModel):
     type: AccumulatorType
     target_count: Optional[int] = None
     current_count: int
-    text_id: Optional[UUID] = None
+    text_id: Optional[str] = None
     mantra_id: Optional[UUID] = None
     mala_image_id: Optional[UUID] = None
     mala_image_url: Optional[str] = Field(None, description="Presigned S3 URL for the chosen mala image (None when no image is set)")
@@ -100,7 +100,7 @@ class PublicAccumulatorDTO(BaseModel):
     type: AccumulatorType
     target_count: Optional[int] = None
     current_count: int
-    text_id: Optional[UUID] = None
+    text_id: Optional[str] = None
     mantra: Optional[PresetMantraDTO] = None
     mala_image_id: Optional[UUID] = None
     mala_image_url: Optional[str] = Field(None, description="Presigned S3 URL for the chosen mala image (None when no image is set)")

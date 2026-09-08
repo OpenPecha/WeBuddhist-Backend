@@ -1,3 +1,4 @@
+import asyncio
 from pecha_api.plans.tasks.plan_tasks_repository import save_task, get_task_by_id, delete_task, update_task_day, update_task_title, get_tasks_by_plan_item_id, reorder_day_tasks_display_order, update_task_order, get_tasks_by_plan_item_id
 from pecha_api.plans.tasks.plan_tasks_response_model import CreateTaskRequest, TaskDTO, UpdateTaskDayRequest, UpdatedTaskDayResponse, GetTaskResponse, UpdateTaskTitleRequest, UpdateTaskTitleResponse, ContentAndImageUrl, UpdateTaskOrderRequest, UpdatedTaskOrderResponse, TaskOrderItem
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_response_model import SubTaskDTO
@@ -23,6 +24,7 @@ from pecha_api.plans.public.plans_cache_service import (
     schedule_invalidate_plan_day_cache_for_day,
     schedule_invalidate_plan_day_cache_for_task,
 )
+from pecha_api.plans.shared.subtask_content_resolver import resolve_subtasks_content, resolve_subtasks_refs
 
 def _get_max_display_order(plan_item_id: UUID) -> int:
     with SessionLocal() as db:
@@ -144,11 +146,16 @@ async def get_task_subtasks_service(task_id: UUID, token: str) -> GetTaskRespons
 
         from pecha_api.plans.audio.dto_helpers import build_subtask_timestamp_fields
 
+        resolved_contents, resolved_refs = await asyncio.gather(
+            resolve_subtasks_content(task.sub_tasks),
+            resolve_subtasks_refs(task.sub_tasks),
+        )
+
         subtasks_dto = []
-        for sub_task in task.sub_tasks:
+        for sub_task, resolved_content, segment_refs in zip(task.sub_tasks, resolved_contents, resolved_refs):
             content_and_image_url = _generate_image_url_content_type(
                 content_type=sub_task.content_type,
-                content=sub_task.content,
+                content=resolved_content,
             )
             start_ms, end_ms = build_subtask_timestamp_fields(sub_task)
             audio_url = (
@@ -165,6 +172,7 @@ async def get_task_subtasks_service(task_id: UUID, token: str) -> GetTaskRespons
                     pecha_segment_id=sub_task.pecha_segment_id,
                     segment_ids=sub_task.segment_ids,
                     segment_numbers=sub_task.segment_numbers,
+                    segment_refs=segment_refs,
                     image_url=content_and_image_url.image_url,
                     audio_url=audio_url,
                     display_order=sub_task.display_order,

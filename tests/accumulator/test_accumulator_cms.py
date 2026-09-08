@@ -36,7 +36,7 @@ def _sample_public_dto(**overrides) -> PublicAccumulatorDTO:
         "type": AccumulatorType.PRESET,
         "target_count": 100000,
         "current_count": 0,
-        "text_id": uuid4(),
+        "text_id": str(uuid4()),
         "mantra": None,
         "mala_image_id": None,
         "mala_image_url": None,
@@ -369,7 +369,7 @@ class TestCmsPresetService:
 
         assert result is expected
         assert preset.target_count == 200000
-        assert preset.text_id == text_id
+        assert preset.text_id == str(text_id)
         assert preset.mantra_id == mantra_id
         assert preset.mala_image == mala_image_id
         mock_validate_text.assert_awaited_once_with(text_id=str(text_id))

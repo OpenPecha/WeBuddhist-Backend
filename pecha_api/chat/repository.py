@@ -2,11 +2,20 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
 
-from sqlalchemy import func, or_
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from pecha_api.chat.enums import ChatRoomMemberRole
-from pecha_api.chat.models import ChatMessage, ChatRoom, ChatRoomMember
+from pecha_api.plans.groups.groups_enums import AuthorGroupStatus
+from pecha_api.plans.groups.groups_models import AuthorGroup
+
+from pecha_api.chat.enums import ChatMessageReportSource, ChatRoomMemberRole
+from pecha_api.chat.models import (
+    ChatMessage,
+    ChatMessageReaction,
+    ChatMessageReport,
+    ChatRoom,
+    ChatRoomMember,
+)
 
 
 def get_room_by_id(db: Session, room_id: UUID) -> Optional[ChatRoom]:
@@ -143,6 +152,22 @@ def list_my_active_rooms(
             ChatRoomMember.user_id == user_id,
             ChatRoomMember.left_at.is_(None),
             ChatRoom.deleted_at.is_(None),
+            # Hide rooms whose group is no longer published. DM rooms have no
+            # group_id and are unaffected. correlate() is required so the
+            # subquery references the outer chat_rooms row instead of joining
+            # its own copy (which would match any published group).
+            or_(
+                ChatRoom.group_id.is_(None),
+                exists(
+                    select(1)
+                    .select_from(AuthorGroup)
+                    .where(
+                        AuthorGroup.id == ChatRoom.group_id,
+                        AuthorGroup.status == AuthorGroupStatus.PUBLISHED,
+                    )
+                    .correlate(ChatRoom)
+                ),
+            ),
         )
     )
     total = query.count()
@@ -170,12 +195,15 @@ def get_room_messages(
 ) -> Tuple[List[ChatMessage], int]:
     query = (
         db.query(ChatMessage)
-        .filter(ChatMessage.room_id == room_id, ChatMessage.deleted_at.is_(None))
+        .filter(ChatMessage.room_id == room_id)
         .order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc())
     )
     total = query.count()
     messages = (
-        query.options(selectinload(ChatMessage.sender))
+        query.options(
+            selectinload(ChatMessage.sender),
+            selectinload(ChatMessage.parent).selectinload(ChatMessage.sender),
+        )
         .offset(skip)
         .limit(limit)
         .all()
@@ -195,9 +223,11 @@ def get_message_by_id(db: Session, message_id: UUID, room_id: UUID) -> Optional[
     )
 
 
-def soft_delete_message(db: Session, message: ChatMessage) -> None:
-    message.deleted_at = datetime.now(timezone.utc)
+def soft_delete_message(db: Session, message: ChatMessage) -> datetime:
+    deleted_at = datetime.now(timezone.utc)
+    message.deleted_at = deleted_at
     db.commit()
+    return deleted_at
 
 
 def mark_message_notification_dispatched(
@@ -281,6 +311,144 @@ def get_last_messages_map(db: Session, room_ids: Sequence[UUID]) -> Dict[UUID, C
         if message.room_id not in result:
             result[message.room_id] = message
     return result
+
+
+def get_reaction(
+    db: Session,
+    message_id: UUID,
+    user_id: UUID,
+    emoji: str,
+) -> Optional[ChatMessageReaction]:
+    return (
+        db.query(ChatMessageReaction)
+        .filter(
+            ChatMessageReaction.message_id == message_id,
+            ChatMessageReaction.user_id == user_id,
+            ChatMessageReaction.emoji == emoji,
+        )
+        .first()
+    )
+
+
+def add_reaction(db: Session, reaction: ChatMessageReaction) -> ChatMessageReaction:
+    db.add(reaction)
+    db.commit()
+    db.refresh(reaction)
+    return reaction
+
+
+def remove_reaction(db: Session, reaction: ChatMessageReaction) -> None:
+    db.delete(reaction)
+    db.commit()
+
+
+def list_message_reactions(db: Session, message_id: UUID) -> List[ChatMessageReaction]:
+    return (
+        db.query(ChatMessageReaction)
+        .options(selectinload(ChatMessageReaction.user))
+        .filter(ChatMessageReaction.message_id == message_id)
+        .order_by(ChatMessageReaction.created_at.asc())
+        .all()
+    )
+
+
+def get_reactions_map(
+    db: Session,
+    message_ids: Sequence[UUID],
+) -> Dict[UUID, List[ChatMessageReaction]]:
+    """Reactions for many messages at once, keyed by message_id."""
+    if not message_ids:
+        return {}
+    reactions = (
+        db.query(ChatMessageReaction)
+        .options(selectinload(ChatMessageReaction.user))
+        .filter(ChatMessageReaction.message_id.in_(message_ids))
+        .order_by(ChatMessageReaction.created_at.asc())
+        .all()
+    )
+    result: Dict[UUID, List[ChatMessageReaction]] = {}
+    for reaction in reactions:
+        result.setdefault(reaction.message_id, []).append(reaction)
+    return result
+
+
+def get_report_by_message_and_reporter(
+    db: Session,
+    message_id: UUID,
+    reporter_id: UUID,
+) -> Optional[ChatMessageReport]:
+    return (
+        db.query(ChatMessageReport)
+        .filter(
+            ChatMessageReport.message_id == message_id,
+            ChatMessageReport.reporter_id == reporter_id,
+        )
+        .first()
+    )
+
+
+def list_reports(
+    db: Session,
+    skip: int = 0,
+    limit: int = 20,
+    source: Optional[str] = None,
+    reason: Optional[str] = None,
+    resolved: Optional[bool] = None,
+) -> Tuple[List[ChatMessageReport], int]:
+    """Paginated moderation reports, newest first, with the people and
+    message context eagerly loaded for display."""
+    query = db.query(ChatMessageReport)
+    if source:
+        query = query.filter(ChatMessageReport.source == source)
+    if reason:
+        query = query.filter(ChatMessageReport.reason == reason)
+    if resolved is True:
+        query = query.filter(ChatMessageReport.resolved_at.isnot(None))
+    elif resolved is False:
+        query = query.filter(ChatMessageReport.resolved_at.is_(None))
+    total = query.with_entities(func.count(ChatMessageReport.id)).scalar() or 0
+    reports = (
+        query.options(
+            selectinload(ChatMessageReport.reporter),
+            selectinload(ChatMessageReport.reported_user),
+            selectinload(ChatMessageReport.room),
+            selectinload(ChatMessageReport.message).selectinload(ChatMessage.sender),
+            selectinload(ChatMessageReport.message).selectinload(ChatMessage.room),
+        )
+        .order_by(ChatMessageReport.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return reports, total
+
+
+def get_unresolved_automatic_report(
+    db: Session,
+    room_id: UUID,
+    reported_user_id: UUID,
+    message_text: str,
+) -> Optional[ChatMessageReport]:
+    """An open system-generated report for the same rejected content, used to
+    keep retried sends of the same message from piling up duplicate reports."""
+    return (
+        db.query(ChatMessageReport)
+        .filter(
+            ChatMessageReport.source == ChatMessageReportSource.AUTOMATIC.value,
+            ChatMessageReport.room_id == room_id,
+            ChatMessageReport.reported_user_id == reported_user_id,
+            ChatMessageReport.message_text == message_text,
+            ChatMessageReport.resolved_at.is_(None),
+        )
+        .first()
+    )
+
+
+def create_report(db: Session, report: ChatMessageReport) -> ChatMessageReport:
+    db.add(report)
+    db.commit()
+    db.refresh(report)
+    return report
 
 
 def count_unread_messages(

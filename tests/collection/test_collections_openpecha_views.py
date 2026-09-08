@@ -38,7 +38,7 @@ class TestCollectionsV2Endpoint:
         )
         mock_service.return_value = mock_response
         
-        response = client.get("/v2/collections?language=en")
+        response = client.get("/collections?language=en")
         
         assert response.status_code == 200
         data = response.json()
@@ -73,7 +73,7 @@ class TestCollectionsV2Endpoint:
         )
         mock_service.return_value = mock_response
         
-        response = client.get("/v2/collections?parent_id=parent-1&language=en")
+        response = client.get("/collections?parent_id=parent-1&language=en")
         
         assert response.status_code == 200
         data = response.json()
@@ -99,7 +99,7 @@ class TestCollectionsV2Endpoint:
         )
         mock_service.return_value = mock_response
         
-        response = client.get("/v2/collections?skip=10&limit=5")
+        response = client.get("/collections?skip=10&limit=5")
         
         assert response.status_code == 200
         data = response.json()
@@ -116,7 +116,7 @@ class TestCollectionsV2Endpoint:
         )
         mock_service.return_value = mock_response
         
-        response = client.get("/v2/collections")
+        response = client.get("/collections")
         
         assert response.status_code == 200
         data = response.json()
@@ -142,7 +142,7 @@ class TestCollectionsV2Endpoint:
         )
         mock_service.return_value = mock_response
         
-        response = client.get("/v2/collections?language=bo")
+        response = client.get("/collections?language=bo")
         
         assert response.status_code == 200
         data = response.json()
@@ -152,15 +152,15 @@ class TestCollectionsV2Endpoint:
 
 class TestCollectionsV2ValidationErrors:
     def test_invalid_skip_negative(self):
-        response = client.get("/v2/collections?skip=-1")
+        response = client.get("/collections?skip=-1")
         assert response.status_code == 422
 
     def test_invalid_limit_zero(self):
-        response = client.get("/v2/collections?limit=0")
+        response = client.get("/collections?limit=0")
         assert response.status_code == 422
 
     def test_invalid_limit_too_large(self):
-        response = client.get("/v2/collections?limit=101")
+        response = client.get("/collections?limit=101")
         assert response.status_code == 422
 
 
@@ -174,7 +174,7 @@ class TestCollectionsV2ErrorHandling:
             detail="Failed to fetch collections from upstream service"
         )
         
-        response = client.get("/v2/collections")
+        response = client.get("/collections")
         
         assert response.status_code == 502
         assert "upstream" in response.json()["detail"].lower()
@@ -188,6 +188,6 @@ class TestCollectionsV2ErrorHandling:
             detail="Internal server error"
         )
         
-        response = client.get("/v2/collections")
+        response = client.get("/collections")
         
         assert response.status_code == 500

@@ -1,9 +1,11 @@
-from sqlalchemy import Column, String, DateTime, UUID, ForeignKey, Index, Boolean, Integer
+from sqlalchemy import Column, String, DateTime, UUID, ForeignKey, Index, Boolean, Integer, text
 from sqlalchemy.orm import relationship
 from ..db.database import Base
 from uuid import uuid4
 import _datetime
 from _datetime import datetime
+
+CASCADE_DELETE_ORPHAN = "all, delete-orphan"
 
 
 class Event(Base):
@@ -23,8 +25,10 @@ class Event(Base):
     location_id = Column(UUID(as_uuid=True), ForeignKey("locations.id", ondelete="RESTRICT"), nullable=True)
     start_date = Column(DateTime(timezone=True), nullable=False)
     end_date = Column(DateTime(timezone=True), nullable=False)
+    timezone = Column(String(64), nullable=True)
     image_url = Column(String(1000), nullable=True)
     featured = Column(Boolean, default=False, nullable=False)
+    event_format = Column(String(10), nullable=False, server_default="hybrid")
     
     is_recurring = Column(Boolean, default=False, nullable=False)
     recurrence_frequency = Column(String(20), nullable=True)
@@ -38,28 +42,37 @@ class Event(Base):
     created_by = Column(String(255), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc))
 
+    notification_sqs_message_id = Column(String(128), nullable=True)
+    notification_dispatched_at = Column(DateTime(timezone=True), nullable=True)
+
     metadata_entries = relationship(
         "EventMetadata",
         back_populates="event",
-        cascade="all, delete-orphan",
+        cascade=CASCADE_DELETE_ORPHAN,
         passive_deletes=True,
     )
 
     links = relationship(
         "EventLink",
         back_populates="event",
-        cascade="all, delete-orphan",
+        cascade=CASCADE_DELETE_ORPHAN,
         passive_deletes=True,
     )
 
     participants = relationship(
         "GroupEventParticipant",
         back_populates="event",
-        cascade="all, delete-orphan",
+        cascade=CASCADE_DELETE_ORPHAN,
         passive_deletes=True,
     )
 
     location = relationship("Location")
+
+    plan = relationship("Plan")
+    accumulator = relationship("Accumulator")
+    mantra = relationship("Mantra")
+    timer = relationship("Timer")
+    group_recitation_collection = relationship("GroupRecitationCollection")
 
     __table_args__ = (
         Index("idx_events_group_id", "group_id"),
@@ -68,4 +81,9 @@ class Event(Base):
         Index("idx_events_end_date", "end_date"),
         Index("idx_events_group_recitation_collection_id", "group_recitation_collection_id"),
         Index("idx_events_featured", "featured"),
+        Index(
+            "idx_events_undispatched_notifications",
+            "created_at",
+            postgresql_where=text("notification_sqs_message_id IS NULL"),
+        ),
     )

@@ -49,6 +49,7 @@ class PublicPlanDTO(BaseModel):
     start_date: Optional[datetime] = None
     display_order: Optional[int] = None
     group_id: Optional[UUID] = None
+    series_id: Optional[UUID] = None  # Set when the plan is part of a series
 
 class SubTaskDTO(BaseModel):
     id: UUID
@@ -57,9 +58,9 @@ class SubTaskDTO(BaseModel):
     duration: Optional[str] = None
     image_url: Optional[str] = None
     audio_url: Optional[str] = None
-    source_text_id: Optional[UUID] = None
+    source_text_id: Optional[str] = None
     pecha_segment_id: Optional[str] = None
-    segment_ids: Optional[List[UUID]] = None
+    segment_ids: Optional[List[str]] = None
     segment_numbers: Optional[List[int]] = None
     display_order: Optional[int] = None
     start_ms: Optional[int] = None
@@ -88,6 +89,7 @@ class PlanDayDTO(BaseModel):
     thumbnail_url: Optional[str] = None
     shareable_image_url: Optional[str] = None
     videos: List[DayVideoSummaryDTO] = []
+    series_id: Optional[UUID] = None  # Set when the plan is part of a series
 
 
 class PlanDayCacheCleanupResponse(BaseModel):

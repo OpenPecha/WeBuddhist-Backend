@@ -9,9 +9,9 @@ class SubTaskRequestFields(BaseModel):
     content_type: str
     content: str
     duration: Optional[str] = None
-    source_text_id: Optional[UUID] = None
+    source_text_id: Optional[str] = None
     pecha_segment_id: Optional[str] = None
-    segment_ids: Optional[List[UUID]] = None
+    segment_ids: Optional[List[str]] = None
     segment_numbers: Optional[List[int]] = None
     start_ms: Optional[int] = None
     end_ms: Optional[int] = None
@@ -29,10 +29,11 @@ class SubTaskDTO(BaseModel):
     duration: Optional[str] = None
     image_url: Optional[str] = None
     audio_url: Optional[str] = None
-    source_text_id: Optional[UUID] = None
+    source_text_id: Optional[str] = None
     pecha_segment_id: Optional[str] = None
-    segment_ids: Optional[List[UUID]] = None
+    segment_ids: Optional[List[str]] = None
     segment_numbers: Optional[List[int]] = None
+    segment_refs: Optional[List[Optional[str]]] = None
     display_order: int
     start_ms: Optional[int] = None
     end_ms: Optional[int] = None

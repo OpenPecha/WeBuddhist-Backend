@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response
@@ -17,6 +17,7 @@ from pecha_api.group_posts.like_service import (
 from pecha_api.users.users_service import validate_and_extract_user_details
 
 oauth2_scheme = HTTPBearer()
+oauth2_scheme_optional = HTTPBearer(auto_error=False)
 
 public_group_post_likes_router = APIRouter(
     prefix="/groups/author/posts/{post_id}/likes",
@@ -69,10 +70,23 @@ def list_post_likers(
     post_id: UUID,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    authentication_credential: Annotated[
+        Optional[HTTPAuthorizationCredentials], Depends(oauth2_scheme_optional)
+    ] = None,
 ) -> PostLikersResponse:
     """List users who liked a post (public, no auth required)."""
+    user_id = None
+    if authentication_credential:
+        try:
+            user = validate_and_extract_user_details(
+                token=authentication_credential.credentials
+            )
+            user_id = user.id
+        except Exception:
+            pass
     return list_post_likers_service(
         post_id=post_id,
         skip=skip,
         limit=limit,
+        user_id=user_id,
     )

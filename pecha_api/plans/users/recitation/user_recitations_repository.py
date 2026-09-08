@@ -44,9 +44,9 @@ def update_recitation_order_in_bulk(db: Session, user_id: UUID, recitation_updat
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail=ResponseError(error=BAD_REQUEST, message=str(e.orig)).model_dump())
     return db.query(UserRecitations).filter(UserRecitations.user_id == user_id).all()
 
-def delete_user_recitation(db: Session, user_id: UUID, text_id: UUID) -> None:
+def delete_user_recitation(db: Session, user_id: UUID, text_id: str) -> None:
     try:
-        recitation = db.query(UserRecitations).filter(UserRecitations.user_id == user_id, UserRecitations.text_id == text_id).first()
+        recitation = db.query(UserRecitations).filter(UserRecitations.user_id == user_id, UserRecitations.text_id == str(text_id)).first()
         
         if not recitation:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=ResponseError(error="NOT_FOUND",message=f"Recitation with ID {text_id} not found for this user").model_dump())      

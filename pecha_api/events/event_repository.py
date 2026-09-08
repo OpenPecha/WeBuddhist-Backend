@@ -1,4 +1,5 @@
-from typing import List, Tuple, Optional
+from datetime import datetime, timezone
+from typing import Callable, List, Tuple, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -10,6 +11,11 @@ from starlette import status
 from .event_model import Event
 from .event_metadata_model import EventMetadata
 from .event_link_model import EventLink
+from ..accumulator.accumulator_models import Accumulator
+from ..mantra.mantra_model import Mantra
+from ..plans.plans_models import Plan
+from ..timers.timer_model import Timer
+from ..group_recitation_collection.models import GroupRecitationCollection
 
 
 def _persist_metadata_entries(db: Session, event_id: UUID, metadata_entries: List) -> None:
@@ -37,10 +43,22 @@ def _persist_link_entries(db: Session, event_id: UUID, link_entries: List) -> No
         )
 
 
-def save_event(db: Session, event: Event, metadata_entries: List, link_entries: Optional[List] = None) -> Event:
+def save_event(
+    db: Session,
+    event: Event,
+    metadata_entries: List,
+    link_entries: Optional[List] = None,
+    after_flush: Optional[Callable[[Event], None]] = None,
+) -> Event:
+    """after_flush runs once event.id is populated and the row is visible
+    in-transaction (e.g. for a dependent row's FK), but before the commit
+    below - so anything it writes on the same session is persisted or rolled
+    back atomically with the event instead of surviving a later failure."""
     try:
         db.add(event)
         db.flush()
+        if after_flush is not None:
+            after_flush(event)
         _persist_metadata_entries(db, event.id, metadata_entries)
         _persist_link_entries(db, event.id, link_entries or [])
         db.commit()
@@ -54,6 +72,20 @@ def save_event(db: Session, event: Event, metadata_entries: List, link_entries: 
         )
 
 
+def _linked_resource_options() -> tuple:
+    """Built lazily (not at import time) so mapper configuration only runs
+    once every model across the app has been imported and registered."""
+    return (
+        selectinload(Event.plan),
+        selectinload(Event.accumulator).selectinload(Accumulator.metadata_entries),
+        selectinload(Event.accumulator).selectinload(Accumulator.mala),
+        selectinload(Event.mantra).selectinload(Mantra.metadata_entries),
+        selectinload(Event.mantra).selectinload(Mantra.mala),
+        selectinload(Event.timer),
+        selectinload(Event.group_recitation_collection),
+    )
+
+
 def get_event_by_id(db: Session, event_id: UUID) -> Optional[Event]:
     return (
         db.query(Event)
@@ -61,6 +93,7 @@ def get_event_by_id(db: Session, event_id: UUID) -> Optional[Event]:
             selectinload(Event.metadata_entries),
             selectinload(Event.links),
             selectinload(Event.location),
+            *_linked_resource_options(),
         )
         .filter(Event.id == event_id)
         .first()
@@ -103,6 +136,39 @@ def delete_event(db: Session, event: Event) -> None:
         )
 
 
+def mark_event_notification_dispatched(
+    db: Session,
+    event_id: UUID,
+    sqs_message_id: str,
+) -> Optional[Event]:
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        return None
+    event.notification_sqs_message_id = sqs_message_id
+    event.notification_dispatched_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(event)
+    return event
+
+
+def list_undispatched_event_notifications(
+    db: Session,
+    *,
+    older_than: datetime,
+    limit: int,
+) -> List[Event]:
+    return (
+        db.query(Event)
+        .filter(
+            Event.notification_sqs_message_id.is_(None),
+            Event.created_at <= older_than,
+        )
+        .order_by(Event.created_at.asc())
+        .limit(limit)
+        .all()
+    )
+
+
 def _apply_event_filters(
     query,
     group_id: Optional[UUID] = None,
@@ -111,6 +177,7 @@ def _apply_event_filters(
     mantra_id: Optional[UUID] = None,
     timer_id: Optional[UUID] = None,
     group_recitation_collection_id: Optional[UUID] = None,
+    event_format: Optional[str] = None,
     from_date: Optional = None,
     to_date: Optional = None,
     restrict_group_ids: Optional[List[UUID]] = None,
@@ -131,6 +198,8 @@ def _apply_event_filters(
         query = query.filter(
             Event.group_recitation_collection_id == group_recitation_collection_id
         )
+    if event_format:
+        query = query.filter(Event.event_format == event_format)
     if from_date is not None:
         query = query.filter(Event.end_date >= from_date)
     if to_date is not None:
@@ -146,6 +215,7 @@ def get_events(
     mantra_id: Optional[UUID] = None,
     timer_id: Optional[UUID] = None,
     group_recitation_collection_id: Optional[UUID] = None,
+    event_format: Optional[str] = None,
     from_date: Optional = None,
     to_date: Optional = None,
     restrict_group_ids: Optional[List[UUID]] = None,
@@ -164,6 +234,7 @@ def get_events(
         mantra_id=mantra_id,
         timer_id=timer_id,
         group_recitation_collection_id=group_recitation_collection_id,
+        event_format=event_format,
         from_date=from_date,
         to_date=to_date,
         restrict_group_ids=restrict_group_ids,
@@ -175,6 +246,7 @@ def get_events(
             selectinload(Event.metadata_entries),
             selectinload(Event.links),
             selectinload(Event.location),
+            *_linked_resource_options(),
         ).filter(Event.is_recurring == False),
         group_id=group_id,
         plan_id=plan_id,
@@ -182,6 +254,7 @@ def get_events(
         mantra_id=mantra_id,
         timer_id=timer_id,
         group_recitation_collection_id=group_recitation_collection_id,
+        event_format=event_format,
         from_date=from_date,
         to_date=to_date,
         restrict_group_ids=restrict_group_ids,
@@ -209,6 +282,7 @@ def get_featured_events(
             selectinload(Event.metadata_entries),
             selectinload(Event.links),
             selectinload(Event.location),
+            *_linked_resource_options(),
         )
         .filter(Event.featured == True)
         .filter(Event.is_recurring == False)
@@ -229,6 +303,7 @@ def get_featured_recurring_events(
             selectinload(Event.metadata_entries),
             selectinload(Event.links),
             selectinload(Event.location),
+            *_linked_resource_options(),
         )
         .filter(Event.featured == True)
         .filter(Event.is_recurring == True)
@@ -244,6 +319,7 @@ def get_recurring_events(
     mantra_id: Optional[UUID] = None,
     timer_id: Optional[UUID] = None,
     group_recitation_collection_id: Optional[UUID] = None,
+    event_format: Optional[str] = None,
     restrict_group_ids: Optional[List[UUID]] = None,
 ) -> List[Event]:
     """Get all recurring event templates matching the filters."""
@@ -251,23 +327,17 @@ def get_recurring_events(
         selectinload(Event.metadata_entries),
         selectinload(Event.links),
         selectinload(Event.location),
+        *_linked_resource_options(),
     ).filter(Event.is_recurring == True)
-    
-    if restrict_group_ids is not None:
-        query = query.filter(Event.group_id.in_(restrict_group_ids))
-    if group_id:
-        query = query.filter(Event.group_id == group_id)
-    if plan_id:
-        query = query.filter(Event.plan_id == plan_id)
-    if accumulator_id:
-        query = query.filter(Event.accumulator_id == accumulator_id)
-    if mantra_id:
-        query = query.filter(Event.mantra_id == mantra_id)
-    if timer_id:
-        query = query.filter(Event.timer_id == timer_id)
-    if group_recitation_collection_id:
-        query = query.filter(
-            Event.group_recitation_collection_id == group_recitation_collection_id
-        )
-    
-    return query.all()
+
+    return _apply_event_filters(
+        query,
+        group_id=group_id,
+        plan_id=plan_id,
+        accumulator_id=accumulator_id,
+        mantra_id=mantra_id,
+        timer_id=timer_id,
+        group_recitation_collection_id=group_recitation_collection_id,
+        event_format=event_format,
+        restrict_group_ids=restrict_group_ids,
+    ).all()

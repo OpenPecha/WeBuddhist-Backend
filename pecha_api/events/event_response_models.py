@@ -1,13 +1,18 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Literal
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 from uuid import UUID
 
+from pecha_api.config import get
 from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.plans.media.media_response_models import ImageUrlModel
+from pecha_api.timezone_utils import normalize_timezone_name
 from .location_response_models import LocationDTO
 from .event_enums import RecurrenceFrequency, RecurrenceDateSystem
+
+
+EventFormat = Literal["online", "offline", "hybrid"]
 
 
 class EventMetadataDTO(BaseModel):
@@ -94,11 +99,20 @@ class RecurrenceInput(BaseModel):
             if self.day > 30:
                 raise ValueError("Lunar day must be between 1 and 30")
         
-        if self.frequency == RecurrenceFrequency.YEARLY:
-            if self.month is None:
-                raise ValueError("month is required for YEARLY frequency")
-        
+        if self.frequency == RecurrenceFrequency.YEARLY and self.month is None:
+            raise ValueError("month is required for YEARLY frequency")
+
         return self
+
+
+class LinkedResourceDTO(BaseModel):
+    """Shared shape for a resource an event is merged with (plan, accumulator,
+    mantra, timer, group recitation collection): id + display name + image."""
+    model_config = ConfigDict(ser_json_exclude_none=True)
+
+    id: UUID
+    name: Optional[str] = None
+    image_url: Optional[str] = None
 
 
 class RecurrenceDTO(BaseModel):
@@ -117,15 +131,21 @@ class EventDTO(BaseModel):
 
     id: UUID
     plan_id: Optional[UUID] = None
+    plan: Optional[LinkedResourceDTO] = None
     accumulator_id: Optional[UUID] = None
+    accumulator: Optional[LinkedResourceDTO] = None
     mantra_id: Optional[UUID] = None
+    mantra: Optional[LinkedResourceDTO] = None
     timer_id: Optional[UUID] = None
+    timer: Optional[LinkedResourceDTO] = None
     group_recitation_collection_id: Optional[UUID] = None
+    group_recitation_collection: Optional[LinkedResourceDTO] = None
     group_id: UUID
     location_id: Optional[UUID] = None
     location: Optional[LocationDTO] = None
     start_date: datetime
     end_date: datetime
+    timezone: Optional[str] = None
     is_one_day: bool
     featured: bool
     is_recurring: bool = False
@@ -134,6 +154,7 @@ class EventDTO(BaseModel):
         None,
         description="For expanded occurrences, the specific occurrence date"
     )
+    event_format: EventFormat = "hybrid"
     metadata: EventMetadataResponse
     links: List[EventLinkDTO] = []
     image: Optional[ImageUrlModel] = None
@@ -178,6 +199,7 @@ class CreateEventRequest(BaseModel):
     group_id: UUID
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
+    timezone: Optional[str] = None
     metadata: List[EventMetadataInput]
     links: List[EventLinkInput] = []
     image_url: Optional[str] = None
@@ -188,6 +210,7 @@ class CreateEventRequest(BaseModel):
     group_recitation_collection_id: Optional[UUID] = None
     location_id: Optional[UUID] = None
     recurrence: Optional[RecurrenceInput] = None
+    event_format: EventFormat = "hybrid"
 
     @field_validator("metadata")
     @classmethod
@@ -198,6 +221,8 @@ class CreateEventRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_dates(self) -> "CreateEventRequest":
+        self.timezone = normalize_timezone_name(self.timezone) or get("DEFAULT_EVENT_TIMEZONE")
+
         if self.recurrence is None:
             if self.start_date is None or self.end_date is None:
                 raise ValueError("start_date and end_date are required when recurrence is not provided")
@@ -217,6 +242,7 @@ class UpdateEventRequest(BaseModel):
     group_id: Optional[UUID] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
+    timezone: Optional[str] = None
     metadata: Optional[List[EventMetadataInput]] = None
     links: Optional[List[EventLinkInput]] = None
     image_url: Optional[str] = None
@@ -227,6 +253,16 @@ class UpdateEventRequest(BaseModel):
     group_recitation_collection_id: Optional[UUID] = None
     location_id: Optional[UUID] = None
     recurrence: Optional[RecurrenceInput] = None
+    event_format: Optional[EventFormat] = None
+
+    @field_validator("event_format")
+    @classmethod
+    def validate_event_format_not_null(cls, value: Optional[EventFormat]) -> Optional[EventFormat]:
+        if value is None:
+            raise ValueError(
+                "event_format cannot be null; omit the field to leave it unchanged"
+            )
+        return value
 
     @field_validator("metadata")
     @classmethod
@@ -236,3 +272,10 @@ class UpdateEventRequest(BaseModel):
         if not value:
             raise ValueError("Metadata list cannot be empty when provided")
         return _validate_unique_languages(value)
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        return normalize_timezone_name(value)

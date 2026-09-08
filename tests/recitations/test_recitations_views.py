@@ -20,8 +20,8 @@ async def test_get_list_of_recitations_success():
     """Test successful retrieval of recitations list."""
     expected = RecitationsResponse(
         recitations=[
-            RecitationDTO(title="First Recitation", text_id=uuid.uuid4()),
-            RecitationDTO(title="Second Recitation", text_id=uuid.uuid4())
+            RecitationDTO(title="First Recitation", text_id=str(uuid.uuid4())),
+            RecitationDTO(title="Second Recitation", text_id=str(uuid.uuid4()))
         ],
         skip=0,
         limit=10,
@@ -59,7 +59,7 @@ async def test_get_list_of_recitations_success():
 @pytest.mark.asyncio
 async def test_get_list_of_recitations_single_recitation():
     """Test get_list_of_recitations with single recitation."""
-    text_id = uuid.uuid4()
+    text_id = str(uuid.uuid4())
     expected = RecitationsResponse(
         recitations=[
             RecitationDTO(title="Single Recitation", text_id=text_id)
@@ -98,7 +98,7 @@ async def test_get_list_of_recitations_single_recitation():
 @pytest.mark.asyncio
 async def test_get_list_of_recitations_with_search():
     """Test get_list_of_recitations with search parameter."""
-    text_id = uuid.uuid4()
+    text_id = str(uuid.uuid4())
     expected = RecitationsResponse(
         recitations=[
             RecitationDTO(title="Prayer Recitation", text_id=text_id)
@@ -139,7 +139,7 @@ async def test_get_list_of_recitations_with_token_passes_credentials():
     from fastapi.security import HTTPAuthorizationCredentials
 
     expected = RecitationsResponse(
-        recitations=[RecitationDTO(title="First Recitation", text_id=uuid.uuid4())],
+        recitations=[RecitationDTO(title="First Recitation", text_id=str(uuid.uuid4()))],
         skip=0,
         limit=10,
         total=1,
@@ -189,11 +189,11 @@ async def test_get_recitation_details_success():
     )
     
     expected_response = RecitationDetailsResponse(
-        text_id=UUID(text_id),
+        text_id=text_id,
         title="Test Recitation",
         segments=[
             RecitationSegment(
-                recitation={"en": Segment(id=uuid.uuid4(), content="Test content")},
+                recitation={"en": Segment(id=str(uuid.uuid4()), content="Test content")},
                 translations={},
                 transliterations={},
                 adaptations={}
@@ -212,7 +212,7 @@ async def test_get_recitation_details_success():
             text_id=text_id, recitation_details_request=request, timezone_name=None
         )
         assert resp == expected_response
-        assert resp.text_id == UUID(text_id)
+        assert resp.text_id == text_id
         assert resp.title == "Test Recitation"
         assert len(resp.segments) == 1
 
@@ -230,17 +230,17 @@ async def test_get_recitation_details_with_multiple_segments():
     )
     
     expected_response = RecitationDetailsResponse(
-        text_id=UUID(text_id),
+        text_id=text_id,
         title="Multi Segment Recitation",
         segments=[
             RecitationSegment(
-                recitation={"en": Segment(id=uuid.uuid4(), content="Segment 1")},
+                recitation={"en": Segment(id=str(uuid.uuid4()), content="Segment 1")},
                 translations={},
                 transliterations={},
                 adaptations={}
             ),
             RecitationSegment(
-                recitation={"en": Segment(id=uuid.uuid4(), content="Segment 2")},
+                recitation={"en": Segment(id=str(uuid.uuid4()), content="Segment 2")},
                 translations={},
                 transliterations={},
                 adaptations={}
@@ -275,17 +275,17 @@ async def test_get_recitation_details_with_all_types():
     )
     
     expected_response = RecitationDetailsResponse(
-        text_id=UUID(text_id),
+        text_id=text_id,
         title="Complete Recitation",
         segments=[
             RecitationSegment(
-                recitation={"en": Segment(id=uuid.uuid4(), content="Recitation content")},
+                recitation={"en": Segment(id=str(uuid.uuid4()), content="Recitation content")},
                 translations={
-                    "bo": Segment(id=uuid.uuid4(), content="Tibetan translation"),
-                    "en": Segment(id=uuid.uuid4(), content="English translation")
+                    "bo": Segment(id=str(uuid.uuid4()), content="Tibetan translation"),
+                    "en": Segment(id=str(uuid.uuid4()), content="English translation")
                 },
-                transliterations={"bo": Segment(id=uuid.uuid4(), content="Transliteration")},
-                adaptations={"en": Segment(id=uuid.uuid4(), content="Adaptation")}
+                transliterations={"bo": Segment(id=str(uuid.uuid4()), content="Transliteration")},
+                adaptations={"en": Segment(id=str(uuid.uuid4()), content="Adaptation")}
             )
         ]
     )

@@ -71,7 +71,7 @@ def test_session_dto_serializer_omits_plan_fields_for_timer():
     dto = SessionDTO(
         id=uuid.uuid4(),
         session_type=SessionType.TIMER,
-        source_id=uuid.uuid4(),
+        source_id=str(uuid.uuid4()),
         title="Should be omitted",
         language="EN",
         duration_ms=900000,
@@ -97,7 +97,7 @@ def test_session_dto_serializer_omits_duration_for_plan():
     dto = SessionDTO(
         id=uuid.uuid4(),
         session_type=SessionType.PLAN,
-        source_id=uuid.uuid4(),
+        source_id=str(uuid.uuid4()),
         title="Morning Plan",
         language="EN",
         duration_ms=900000,
@@ -800,23 +800,25 @@ async def test_resolve_recitation_sessions_success():
     )
 
     with patch(
-        "pecha_api.routines.routines_service.Text.get_texts_by_ids",
+        "pecha_api.routines.routines_service.fetch_edition_text_id",
         new_callable=AsyncMock,
-        return_value=[mock_text],
+        side_effect=Exception("not an edition"),
     ), patch(
-        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
+        "pecha_api.routines.routines_service.get_text_by_id_from_openpecha",
         new_callable=AsyncMock,
-        return_value={
-            str(text_id): (
-                str(segment_id),
-                "Verse one\nVerse two\nVerse three",
-            )
-        },
+        return_value=mock_text,
+    ), patch(
+        "pecha_api.routines.routines_service.get_first_segment_for_text",
+        new_callable=AsyncMock,
+        return_value=SimpleNamespace(
+            id=str(segment_id),
+            content="Verse one\nVerse two\nVerse three",
+        ),
     ):
         result = await _resolve_recitation_sessions(recitation_sessions=[session])
 
         assert len(result) == 1
-        assert result[0].source_id == text_id
+        assert result[0].source_id == str(text_id)
         assert result[0].title == "Heart Sutra"
         assert result[0].language == "bo"
         assert result[0].image is None
@@ -845,13 +847,17 @@ async def test_resolve_recitation_sessions_null_language():
     )
 
     with patch(
-        "pecha_api.routines.routines_service.Text.get_texts_by_ids",
+        "pecha_api.routines.routines_service.fetch_edition_text_id",
         new_callable=AsyncMock,
-        return_value=[mock_text],
+        side_effect=Exception("not an edition"),
     ), patch(
-        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
+        "pecha_api.routines.routines_service.get_text_by_id_from_openpecha",
         new_callable=AsyncMock,
-        return_value={str(text_id): (str(segment_id), "Test content")},
+        return_value=mock_text,
+    ), patch(
+        "pecha_api.routines.routines_service.get_first_segment_for_text",
+        new_callable=AsyncMock,
+        return_value=SimpleNamespace(id=str(segment_id), content="Test content"),
     ):
         result = await _resolve_recitation_sessions(recitation_sessions=[session])
 
@@ -869,13 +875,17 @@ async def test_resolve_recitation_sessions_missing_text():
     )
 
     with patch(
-        "pecha_api.routines.routines_service.Text.get_texts_by_ids",
+        "pecha_api.routines.routines_service.fetch_edition_text_id",
         new_callable=AsyncMock,
-        return_value=[],
+        side_effect=Exception("not an edition"),
     ), patch(
-        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
+        "pecha_api.routines.routines_service.get_text_by_id_from_openpecha",
         new_callable=AsyncMock,
-        return_value={},
+        return_value=None,
+    ), patch(
+        "pecha_api.routines.routines_service.get_first_segment_for_text",
+        new_callable=AsyncMock,
+        return_value=None,
     ):
         result = await _resolve_recitation_sessions(recitation_sessions=[session])
 
@@ -883,7 +893,7 @@ async def test_resolve_recitation_sessions_missing_text():
 
 
 @pytest.mark.asyncio
-async def test_resolve_recitation_sessions_skips_when_first_segment_missing():
+async def test_resolve_recitation_sessions_included_when_first_segment_missing():
     text_id = uuid.uuid4()
     session = SimpleNamespace(
         id=uuid.uuid4(),
@@ -898,17 +908,79 @@ async def test_resolve_recitation_sessions_skips_when_first_segment_missing():
     )
 
     with patch(
-        "pecha_api.routines.routines_service.Text.get_texts_by_ids",
+        "pecha_api.routines.routines_service.fetch_edition_text_id",
         new_callable=AsyncMock,
-        return_value=[mock_text],
+        side_effect=Exception("not an edition"),
     ), patch(
-        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
+        "pecha_api.routines.routines_service.get_text_by_id_from_openpecha",
         new_callable=AsyncMock,
-        return_value={},
+        return_value=mock_text,
+    ), patch(
+        "pecha_api.routines.routines_service.get_first_segment_for_text",
+        new_callable=AsyncMock,
+        return_value=None,
     ):
         result = await _resolve_recitation_sessions(recitation_sessions=[session])
 
-        assert result == []
+        # A missing preview is a decoration failure, not a reason to drop
+        # the recitation session itself.
+        assert len(result) == 1
+        assert result[0].title == "Heart Sutra"
+        assert result[0].first_segment is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_recitation_sessions_resolves_edition_id():
+    """The recitations listing hands out OpenPecha edition ids labeled as
+    `text_id` on the wire, so a RECITATION session's `source_id` is usually
+    an edition id rather than a plain text id. It should resolve via
+    fetch_edition_text_id + build_first_segment_for_edition, not the
+    plain-text-id path."""
+    edition_id = "edition-123"
+    resolved_text_id = "text-456"
+    segment_id = uuid.uuid4()
+    session = SimpleNamespace(
+        id=uuid.uuid4(),
+        session_type=SessionType.RECITATION,
+        source_id=edition_id,
+        display_order=0,
+    )
+    mock_text = SimpleNamespace(
+        id=resolved_text_id,
+        title="Heart Sutra",
+        language="bo",
+    )
+
+    with patch(
+        "pecha_api.routines.routines_service.fetch_edition_text_id",
+        new_callable=AsyncMock,
+        return_value=resolved_text_id,
+    ) as mock_fetch_edition_text_id, patch(
+        "pecha_api.routines.routines_service.get_text_by_id_from_openpecha",
+        new_callable=AsyncMock,
+        return_value=mock_text,
+    ) as mock_get_text, patch(
+        "pecha_api.routines.routines_service.build_first_segment_for_edition",
+        new_callable=AsyncMock,
+        return_value=SimpleNamespace(id=str(segment_id), content="Om mani padme hum"),
+    ) as mock_build_first_segment, patch(
+        "pecha_api.routines.routines_service.get_first_segment_for_text",
+        new_callable=AsyncMock,
+    ) as mock_get_first_segment_for_text:
+        result = await _resolve_recitation_sessions(recitation_sessions=[session])
+
+        mock_fetch_edition_text_id.assert_awaited_once_with(edition_id=edition_id)
+        mock_get_text.assert_awaited_once_with(text_id=resolved_text_id)
+        mock_build_first_segment.assert_awaited_once_with(edition_id=edition_id)
+        mock_get_first_segment_for_text.assert_not_awaited()
+
+        assert len(result) == 1
+        # The wire id stays the original edition id, matching what the
+        # recitations listing exposes as `text_id`.
+        assert result[0].source_id == edition_id
+        assert result[0].title == "Heart Sutra"
+        assert result[0].first_segment.id == str(segment_id)
+        assert result[0].first_segment.content == "Om mani padme hum"
 
 
 def test_resolve_timer_sessions_success():
@@ -956,7 +1028,7 @@ def test_build_session_models_sanitises_inapplicable_fields():
     result = build_session_models(time_block_id=time_block_id, sessions=sessions)
 
     plan_model, timer_model = result
-    assert plan_model.source_id == plan_source_id
+    assert plan_model.source_id == str(plan_source_id)
     assert plan_model.duration_ms is None
     assert timer_model.source_id is None
     assert timer_model.duration_ms == 600000
@@ -1232,7 +1304,7 @@ async def test_add_time_block_allows_same_plan_in_different_time_block():
 
         assert result.id == time_block_id
         assert len(result.sessions) == 1
-        assert result.sessions[0].source_id == existing_plan_id
+        assert result.sessions[0].source_id == str(existing_plan_id)
 
 
 @pytest.mark.asyncio
@@ -1314,7 +1386,7 @@ async def test_add_time_block_allows_same_series_in_different_time_block():
 
         assert result.id == time_block_id
         assert len(result.sessions) == 1
-        assert result.sessions[0].source_id == existing_series_id
+        assert result.sessions[0].source_id == str(existing_series_id)
 
 
 @pytest.mark.asyncio
@@ -1367,7 +1439,7 @@ def test_session_dto_serializer_exposes_start_fields_for_series():
     dto = SessionDTO(
         id=uuid.uuid4(),
         session_type=SessionType.SERIES,
-        source_id=uuid.uuid4(),
+        source_id=str(uuid.uuid4()),
         title="AIY Series",
         language="EN",
         duration_ms=900000,
@@ -1428,7 +1500,7 @@ def test_normalize_plan_sessions_to_series():
 
     assert len(result) == 1
     assert result[0].session_type == SessionType.SERIES
-    assert result[0].source_id == series_id
+    assert result[0].source_id == str(series_id)
 
 
 def test_resolve_series_sessions_uses_first_plan_start_fields():
@@ -1482,7 +1554,7 @@ def test_resolve_series_sessions_uses_first_plan_start_fields():
 
     assert len(result) == 1
     assert result[0].session_type == SessionType.SERIES
-    assert result[0].source_id == series_id
+    assert result[0].source_id == str(series_id)
     assert result[0].title == "Morning Series"
     assert result[0].language == "EN"
     assert result[0].start_date == plan_start_date
@@ -2191,7 +2263,7 @@ async def test_update_time_block_service_allows_same_plan_in_different_time_bloc
 
         assert result.id == time_block_id
         assert len(result.sessions) == 1
-        assert result.sessions[0].source_id == existing_plan_id
+        assert result.sessions[0].source_id == str(existing_plan_id)
 
 
 @pytest.mark.asyncio
@@ -2489,15 +2561,17 @@ async def test_get_user_routine_with_multiple_time_blocks():
         "pecha_api.routines.routines_service.get_plans_by_ids",
         return_value=[mock_plan],
     ), patch(
-        "pecha_api.routines.routines_service.Text.get_texts_by_ids",
+        "pecha_api.routines.routines_service.fetch_edition_text_id",
         new_callable=AsyncMock,
-        return_value=[mock_text],
+        side_effect=Exception("not an edition"),
     ), patch(
-        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
+        "pecha_api.routines.routines_service.get_text_by_id_from_openpecha",
         new_callable=AsyncMock,
-        return_value={
-            str(source_id_2): (str(uuid.uuid4()), "Evening opening verse"),
-        },
+        return_value=mock_text,
+    ), patch(
+        "pecha_api.routines.routines_service.get_first_segment_for_text",
+        new_callable=AsyncMock,
+        return_value=SimpleNamespace(id=str(uuid.uuid4()), content="Evening opening verse"),
     ):
         result = await get_user_routine(token="token123", skip=0, limit=20)
 
@@ -2663,18 +2737,20 @@ async def test_resolve_sessions_mixed_types():
         "pecha_api.routines.routines_service.get_plans_by_ids",
         return_value=[mock_plan],
     ), patch(
-        "pecha_api.routines.routines_service.Text.get_texts_by_ids",
+        "pecha_api.routines.routines_service.fetch_edition_text_id",
         new_callable=AsyncMock,
-        return_value=[mock_text],
+        side_effect=Exception("not an edition"),
     ), patch(
-        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
+        "pecha_api.routines.routines_service.get_text_by_id_from_openpecha",
         new_callable=AsyncMock,
-        return_value={
-            str(recitation_source_id): (
-                str(recitation_segment_id),
-                "Recitation opening verse",
-            )
-        },
+        return_value=mock_text,
+    ), patch(
+        "pecha_api.routines.routines_service.get_first_segment_for_text",
+        new_callable=AsyncMock,
+        return_value=SimpleNamespace(
+            id=str(recitation_segment_id),
+            content="Recitation opening verse",
+        ),
     ), patch(
         "pecha_api.routines.routines_service.get_plan_progress_by_user_id_and_plan_ids",
         return_value={},
@@ -2686,7 +2762,7 @@ async def test_resolve_sessions_mixed_types():
         assert result[0].display_order == 0  # Recitation first
         assert result[1].display_order == 1  # Plan second
         assert result[2].display_order == 2  # Timer last
-        assert result[0].source_id == recitation_source_id
+        assert result[0].source_id == str(recitation_source_id)
         assert result[0].title == "Recitation Title"
         assert result[0].first_segment.content == "Recitation opening verse"
         assert result[1].title == "Plan Title"
@@ -2767,7 +2843,7 @@ def test_resolve_recitation_collection_sessions_success():
     dto = result[0]
     assert dto.id == session_id
     assert dto.session_type == SessionType.RECITATION_COLLECTION
-    assert dto.source_id == collection_id
+    assert dto.source_id == str(collection_id)
     assert dto.title == "My Collection"
     assert dto.image == collection_image
     assert dto.display_order == 3
@@ -2867,7 +2943,7 @@ def test_resolve_group_recitation_collection_sessions_success():
     dto = result[0]
     assert dto.id == session_id
     assert dto.session_type == SessionType.GROUP_RECITATION_COLLECTION
-    assert dto.source_id == collection_id
+    assert dto.source_id == str(collection_id)
     assert dto.title == "Group Chants"
     assert dto.image == collection_image
     assert dto.display_order == 2
@@ -2896,7 +2972,7 @@ def test_session_dto_serializer_keeps_item_count_for_group_collection():
     dto = SessionDTO(
         id=uuid.uuid4(),
         session_type=SessionType.GROUP_RECITATION_COLLECTION,
-        source_id=uuid.uuid4(),
+        source_id=str(uuid.uuid4()),
         title="Group Collection",
         display_order=0,
         item_count=3,
@@ -2916,7 +2992,7 @@ def test_session_request_accepts_accumulator_id():
         accumulator_id=preset_id,
         display_order=0,
     )
-    assert session.source_id == preset_id
+    assert session.source_id == str(preset_id)
     assert session.accumulator_id == preset_id
 
 
@@ -2925,7 +3001,7 @@ def test_session_dto_serializer_exposes_accumulator_id_for_accumulator():
     dto = SessionDTO(
         id=uuid.uuid4(),
         session_type=SessionType.ACCUMULATOR,
-        source_id=accumulator_id,
+        source_id=str(accumulator_id),
         accumulator_id=accumulator_id,
         title="Mani Counter",
         language="en",

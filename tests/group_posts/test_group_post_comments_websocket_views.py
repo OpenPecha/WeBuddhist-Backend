@@ -125,7 +125,7 @@ def _websocket_env(
             mock_get_and_validate.return_value = (mock_post, mock_post.group_id)
         
         mock_group_check = stack.enter_context(
-            patch("pecha_api.group_posts.comment_service._validate_group_is_public")
+            patch("pecha_api.group_posts.comment_service._validate_group_access")
         )
         if validation_error is not None:
             mock_group_check.side_effect = validation_error

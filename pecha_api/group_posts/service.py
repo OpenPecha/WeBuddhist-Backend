@@ -15,6 +15,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_public_group_ids,
 )
 from pecha_api.plans.response_message import NOT_FOUND
+from pecha_api.group_posts.service_utils import validate_group_content_access
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 
 from pecha_api.group_posts.enums import GroupPostStatus
@@ -48,14 +49,8 @@ def _generate_presigned_url(s3_key: Optional[str]) -> Optional[str]:
         return None
 
 
-def _validate_group_is_public(db: Session, group_id: UUID) -> None:
-    """Validate that group exists and is public."""
-    group = get_group_by_id(db=db, group_id=group_id)
-    if not group or not group.is_public:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=NOT_FOUND,
-        )
+def _validate_group_access(db: Session, group_id: UUID, user_id: Optional[UUID]) -> None:
+    validate_group_content_access(db=db, group_id=group_id, user_id=user_id)
 
 
 def _isoformat(value) -> Optional[str]:
@@ -228,7 +223,7 @@ def list_group_posts_service(
 ) -> GroupPostsResponse:
     """Public chronological feed of published posts for a public group."""
     with SessionLocal() as db:
-        _validate_group_is_public(db, group_id)
+        _validate_group_access(db, group_id, user_id)
 
         posts, total = get_group_posts(
             db=db,
@@ -297,6 +292,6 @@ def get_group_post_detail_service(
                 detail=NOT_FOUND,
             )
 
-        _validate_group_is_public(db, post.group_id)
+        _validate_group_access(db, post.group_id, user_id)
 
         return build_post_dtos(db, [post], user_id=user_id)[0]
