@@ -47,6 +47,7 @@ def _row(ev, md):
         recurrence_date_system=ev.recurrence_date_system,
         recurrence_calendar_type=ev.recurrence_calendar_type,
         recurrence_month=ev.recurrence_month, recurrence_day=ev.recurrence_day,
+        recurrence_day_of_week=ev.recurrence_day_of_week,
         duration_days=ev.duration_days,
         metadata_entries=[SimpleNamespace(id=uuid4(), name=m.name,
                                           description=m.description, language=m.language)
@@ -127,6 +128,7 @@ def _timed_recurring_event_stub() -> SimpleNamespace:
         is_recurring=True,
         recurrence_frequency="MONTHLY", recurrence_date_system="GREGORIAN",
         recurrence_calendar_type=None, recurrence_month=None, recurrence_day=10,
+        recurrence_day_of_week=None,
         duration_days=1,
         start_date=datetime(2026, 9, 10, 9, 30, 0, tzinfo=timezone.utc),
         end_date=datetime(2026, 9, 10, 17, 0, 0, tzinfo=timezone.utc),

@@ -4,6 +4,7 @@ from enum import Enum
 class RecurrenceFrequency(str, Enum):
     YEARLY = "YEARLY"
     MONTHLY = "MONTHLY"
+    WEEKLY = "WEEKLY"
 
 
 class RecurrenceDateSystem(str, Enum):

@@ -86,11 +86,27 @@ class RecurrenceInput(BaseModel):
     date_system: RecurrenceDateSystem
     calendar_type: Optional[str] = Field(None, max_length=10)
     month: Optional[int] = Field(None, ge=1, le=12)
-    day: int = Field(ge=1, le=31)
+    day: Optional[int] = Field(None, ge=1, le=31)
+    day_of_week: Optional[int] = Field(
+        None,
+        ge=0,
+        le=6,
+        description="0=Monday .. 6=Sunday, required for WEEKLY frequency",
+    )
     duration_days: int = Field(default=1, ge=1)
 
     @model_validator(mode="after")
     def validate_recurrence_rules(self) -> "RecurrenceInput":
+        if self.frequency == RecurrenceFrequency.WEEKLY:
+            if self.day_of_week is None:
+                raise ValueError("day_of_week is required for WEEKLY frequency")
+            if self.date_system != RecurrenceDateSystem.GREGORIAN:
+                raise ValueError("WEEKLY frequency only supports the GREGORIAN date system")
+            return self
+
+        if self.day is None:
+            raise ValueError("day is required for MONTHLY and YEARLY frequency")
+
         if self.date_system == RecurrenceDateSystem.TIBETAN_LUNAR:
             if not self.calendar_type:
                 raise ValueError("calendar_type is required for TIBETAN_LUNAR date system")
@@ -98,7 +114,7 @@ class RecurrenceInput(BaseModel):
                 raise ValueError("calendar_type must be 'phugpa' or 'tsurphu'")
             if self.day > 30:
                 raise ValueError("Lunar day must be between 1 and 30")
-        
+
         if self.frequency == RecurrenceFrequency.YEARLY and self.month is None:
             raise ValueError("month is required for YEARLY frequency")
 
@@ -122,7 +138,8 @@ class RecurrenceDTO(BaseModel):
     date_system: str
     calendar_type: Optional[str] = None
     month: Optional[int] = None
-    day: int
+    day: Optional[int] = None
+    day_of_week: Optional[int] = None
     duration_days: int
 
 

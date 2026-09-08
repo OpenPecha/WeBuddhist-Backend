@@ -42,6 +42,7 @@ class Event(Base):
     recurrence_calendar_type = Column(String(10), nullable=True)
     recurrence_month = Column(Integer, nullable=True)
     recurrence_day = Column(Integer, nullable=True)
+    recurrence_day_of_week = Column(Integer, nullable=True)
     duration_days = Column(Integer, default=1, nullable=False)
 
     created_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc), nullable=False)
