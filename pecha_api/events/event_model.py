@@ -13,7 +13,13 @@ class Event(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     plan_id = Column(UUID(as_uuid=True), ForeignKey("plans.id", ondelete="SET NULL"), nullable=True)
+    series_id = Column(UUID(as_uuid=True), ForeignKey("series.id", ondelete="SET NULL"), nullable=True)
     accumulator_id = Column(UUID(as_uuid=True), ForeignKey("accumulators.id", ondelete="SET NULL"), nullable=True)
+    group_accumulator_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("group_accumulators.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     mantra_id = Column(UUID(as_uuid=True), ForeignKey("mantra.id", ondelete="SET NULL"), nullable=True)
     timer_id = Column(UUID(as_uuid=True), ForeignKey("timers.id", ondelete="SET NULL"), nullable=True)
     group_recitation_collection_id = Column(
@@ -69,7 +75,9 @@ class Event(Base):
     location = relationship("Location")
 
     plan = relationship("Plan")
+    series = relationship("Series")
     accumulator = relationship("Accumulator")
+    group_accumulator = relationship("GroupAccumulator")
     mantra = relationship("Mantra")
     timer = relationship("Timer")
     group_recitation_collection = relationship("GroupRecitationCollection")
@@ -79,6 +87,8 @@ class Event(Base):
         Index("idx_events_location_id", "location_id"),
         Index("idx_events_start_date", "start_date"),
         Index("idx_events_end_date", "end_date"),
+        Index("idx_events_series_id", "series_id"),
+        Index("idx_events_group_accumulator_id", "group_accumulator_id"),
         Index("idx_events_group_recitation_collection_id", "group_recitation_collection_id"),
         Index("idx_events_featured", "featured"),
         Index(

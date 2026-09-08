@@ -51,6 +51,7 @@ def get_group_accumulators(
     group_id: UUID,
     skip: int = 0,
     limit: int = 20,
+    search: Optional[str] = None,
 ) -> Tuple[List[GroupAccumulator], int]:
     query = (
         db.query(GroupAccumulator)
@@ -60,6 +61,8 @@ def get_group_accumulators(
             GroupAccumulator.deleted_at.is_(None),
         )
     )
+    if search:
+        query = query.filter(GroupAccumulator.title.ilike(f"%{search}%"))
     total = query.count()
     accumulators = query.order_by(GroupAccumulator.created_at.desc()).offset(skip).limit(limit).all()
     return accumulators, total

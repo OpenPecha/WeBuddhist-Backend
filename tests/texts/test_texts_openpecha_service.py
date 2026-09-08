@@ -556,18 +556,38 @@ class TestGetTitlesAndIdsByQuery:
         )
 
     @pytest.mark.asyncio
-    async def test_raises_400_when_title_missing(self):
-        with pytest.raises(HTTPException) as exc_info:
-            await get_titles_and_ids_by_query(title=None)
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_critical_editions", new_callable=AsyncMock)
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
+    async def test_missing_title_returns_default_listing(self, mock_fetch_texts, mock_fetch_editions):
+        mock_fetch_texts.return_value = {
+            "items": [{"id": "t-1", "title": {"en": "Text 1"}, "language": "en"}],
+            "has_more": False,
+        }
+        mock_fetch_editions.return_value = [CriticalEditionModel(id="edition-1", type="critical")]
 
-        assert exc_info.value.status_code == 400
+        result = await get_titles_and_ids_by_query(title=None)
+
+        assert result == [TitleSearchResult(id="edition-1", title="Text 1")]
+        mock_fetch_texts.assert_awaited_once_with(
+            category_id=None,
+            title=None,
+            offset=0,
+            limit=20,
+        )
 
     @pytest.mark.asyncio
-    async def test_raises_400_when_title_empty(self):
-        with pytest.raises(HTTPException) as exc_info:
-            await get_titles_and_ids_by_query(title="")
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
+    async def test_empty_title_is_treated_as_default_listing(self, mock_fetch_texts):
+        mock_fetch_texts.return_value = {"items": [], "has_more": False}
 
-        assert exc_info.value.status_code == 400
+        await get_titles_and_ids_by_query(title="")
+
+        mock_fetch_texts.assert_awaited_once_with(
+            category_id=None,
+            title=None,
+            offset=0,
+            limit=20,
+        )
 
     @pytest.mark.asyncio
     @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)

@@ -747,12 +747,13 @@ def get_group_accumulators_cms_service(
     group_id: UUID,
     skip: int = 0,
     limit: int = 20,
+    search: Optional[str] = None,
 ) -> GroupAccumulatorsResponse:
     """List group accumulators (CMS - requires author with read permission)."""
     author = validate_cms_author_details(token=token)
     with SessionLocal() as db:
         require_can_read_group_content(db=db, group_id=group_id, author=author)
-        accumulators, total = get_group_accumulators(db, group_id, skip, limit)
+        accumulators, total = get_group_accumulators(db, group_id, skip, limit, search=search)
         member_counts = get_group_accumulator_joiners_counts(
             db=db,
             group_accumulator_ids=[acc.id for acc in accumulators],

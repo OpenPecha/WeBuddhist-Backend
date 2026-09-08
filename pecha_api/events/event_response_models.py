@@ -132,8 +132,12 @@ class EventDTO(BaseModel):
     id: UUID
     plan_id: Optional[UUID] = None
     plan: Optional[LinkedResourceDTO] = None
+    series_id: Optional[UUID] = None
+    series: Optional[LinkedResourceDTO] = None
     accumulator_id: Optional[UUID] = None
     accumulator: Optional[LinkedResourceDTO] = None
+    group_accumulator_id: Optional[UUID] = None
+    group_accumulator: Optional[LinkedResourceDTO] = None
     mantra_id: Optional[UUID] = None
     mantra: Optional[LinkedResourceDTO] = None
     timer_id: Optional[UUID] = None
@@ -204,7 +208,9 @@ class CreateEventRequest(BaseModel):
     links: List[EventLinkInput] = []
     image_url: Optional[str] = None
     plan_id: Optional[UUID] = None
+    series_id: Optional[UUID] = None
     accumulator_id: Optional[UUID] = None
+    group_accumulator_id: Optional[UUID] = None
     mantra_id: Optional[UUID] = None
     timer_id: Optional[UUID] = None
     group_recitation_collection_id: Optional[UUID] = None
@@ -247,7 +253,9 @@ class UpdateEventRequest(BaseModel):
     links: Optional[List[EventLinkInput]] = None
     image_url: Optional[str] = None
     plan_id: Optional[UUID] = None
+    series_id: Optional[UUID] = None
     accumulator_id: Optional[UUID] = None
+    group_accumulator_id: Optional[UUID] = None
     mantra_id: Optional[UUID] = None
     timer_id: Optional[UUID] = None
     group_recitation_collection_id: Optional[UUID] = None
