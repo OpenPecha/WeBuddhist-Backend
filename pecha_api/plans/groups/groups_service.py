@@ -2537,6 +2537,57 @@ def get_group_member_accumulations(
         )
 
 
+def _parse_subject_uuid(subject) -> Optional[UUID]:
+    try:
+        return UUID(str(subject)) if subject is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _live_user_at_id(db: Session, subject_uuid: UUID) -> Optional[Users]:
+    try:
+        return get_user_by_id(db=db, user_id=subject_uuid)
+    except HTTPException:
+        return None
+
+
+def _website_user_from_token(token: str) -> Optional[Users]:
+    try:
+        return validate_and_extract_user_details(token=token)
+    except HTTPException:
+        return None
+
+
+def _resolve_permission_caller(db: Session, subject_uuid: Optional[UUID], token: str):
+    """Resolve (author, user) from a stable token subject.
+
+    Trust an Author id only when no live User occupies that id.
+    A colliding User token must not inherit that Author's group
+    membership; contact claims are not used to disambiguate.
+    """
+    candidate_author = None
+    live_user = None
+    if subject_uuid is not None:
+        candidate_author = find_author_by_id(db=db, author_id=subject_uuid)
+        live_user = _live_user_at_id(db, subject_uuid)
+
+    if candidate_author is not None and live_user is None:
+        return candidate_author, None
+    if live_user is not None:
+        return None, live_user
+    return None, _website_user_from_token(token)
+
+
+def _no_cms_access_dto(group_id: UUID, author_id: Optional[UUID] = None) -> GroupPermissionDTO:
+    return GroupPermissionDTO(
+        group_id=group_id,
+        has_permission=False,
+        role=None,
+        is_super_admin=False,
+        author_id=author_id,
+    )
+
+
 def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
     """Check whether the authenticated caller has CMS management access.
 
@@ -2566,36 +2617,8 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
             detail="Invalid or expired token",
         )
 
-    subject = payload.get("sub")
-    try:
-        subject_uuid = UUID(str(subject)) if subject is not None else None
-    except (TypeError, ValueError):
-        subject_uuid = None
-
     with SessionLocal() as db:
-        candidate_author = None
-        live_user_at_id = None
-        if subject_uuid is not None:
-            candidate_author = find_author_by_id(db=db, author_id=subject_uuid)
-            try:
-                live_user_at_id = get_user_by_id(db=db, user_id=subject_uuid)
-            except HTTPException:
-                live_user_at_id = None
-
-        # Trust an Author id only when no live User occupies that id.
-        # A colliding User token must not inherit that Author's group
-        # membership; contact claims are not used to disambiguate.
-        author = candidate_author if candidate_author is not None and live_user_at_id is None else None
-
-        user = None
-        if author is None:
-            if live_user_at_id is not None:
-                user = live_user_at_id
-            else:
-                try:
-                    user = validate_and_extract_user_details(token=token)
-                except HTTPException:
-                    user = None
+        author, user = _resolve_permission_caller(db, _parse_subject_uuid(payload.get("sub")), token)
 
         if author is None and user is None:
             # Resolve identity before touching the group so a token whose
@@ -2611,29 +2634,15 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
 
         if author is None:
-            return GroupPermissionDTO(
-                group_id=group_id,
-                has_permission=False,
-                role=None,
-                is_super_admin=False,
-                author_id=None,
-            )
-
+            return _no_cms_access_dto(group_id)
         if not author.is_active:
-            return GroupPermissionDTO(
-                group_id=group_id,
-                has_permission=False,
-                role=None,
-                is_super_admin=False,
-                author_id=author.id,
-            )
+            return _no_cms_access_dto(group_id, author.id)
 
         role = get_member_role(db=db, group_id=group_id, author_id=author.id)
         author_is_super_admin = is_super_admin(author)
-        has_permission = author_is_super_admin or role in _GROUP_SETTINGS_ROLES
         return GroupPermissionDTO(
             group_id=group_id,
-            has_permission=has_permission,
+            has_permission=author_is_super_admin or role in _GROUP_SETTINGS_ROLES,
             role=role,
             is_super_admin=author_is_super_admin,
             author_id=author.id,

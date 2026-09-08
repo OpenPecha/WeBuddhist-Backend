@@ -86,6 +86,7 @@ def test_exchange_new_profile_requires_both_names():
         subject="sms|+14155552671",
         phone_number="+14155552671",
     )
+    request = PhoneExchangeRequest(auth0_token="auth0-token", first_name="Tashi")
     with patch(
         "pecha_api.plans.auth.plan_auth_services.verify_auth0_sms_token",
         return_value=sms_identity,
@@ -97,9 +98,7 @@ def test_exchange_new_profile_requires_both_names():
     ):
         _session(session_local)
         with pytest.raises(HTTPException) as exc:
-            exchange_phone_token(
-                PhoneExchangeRequest(auth0_token="auth0-token", first_name="Tashi")
-            )
+            exchange_phone_token(request)
 
     assert exc.value.status_code == 422
 
