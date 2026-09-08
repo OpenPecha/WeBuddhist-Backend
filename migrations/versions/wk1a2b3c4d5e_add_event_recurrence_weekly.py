@@ -56,6 +56,15 @@ def downgrade() -> None:
     op.drop_constraint('ck_events_weekly_day_of_week', 'events', type_='check')
     op.drop_constraint('ck_events_monthly_yearly_day', 'events', type_='check')
     op.drop_constraint('ck_events_recurrence_required', 'events', type_='check')
+
+    # WEEKLY rows store their day in `recurrence_day_of_week` and leave
+    # `recurrence_day` NULL; the constraint below requires `recurrence_day`
+    # on every recurring row, so backfill a placeholder first or PostgreSQL
+    # rejects the rollback on any table that already has weekly events.
+    op.execute(
+        "UPDATE events SET recurrence_day = 1 "
+        "WHERE is_recurring = true AND recurrence_day IS NULL"
+    )
     op.create_check_constraint(
         'ck_events_recurrence_required',
         'events',
