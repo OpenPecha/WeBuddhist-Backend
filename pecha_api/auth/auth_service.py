@@ -103,11 +103,8 @@ def create_user(create_user_request: CreateUserRequest, registration_source: Reg
     with SessionLocal() as db_session:
         if create_user_request.email and get_user_by_email_or_none(db=db_session, email=create_user_request.email):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ErrorConstants.USER_ALREADY_EXISTS)
-        # An Author account's email/phone is trusted to resolve a website
-        # token to its Author record (see validate_and_extract_author_details).
-        # Letting self-registration claim either would let anyone type in an
-        # Author's public contact info and be recognized as that Author, so
-        # registration is blocked on a collision instead of silently binding.
+        # Keep User and Author contact records distinct so invitation
+        # lookup and any future explicit account-linking stay unambiguous.
         if create_user_request.email and find_author_by_email(db=db_session, email=create_user_request.email):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ErrorConstants.USER_ALREADY_EXISTS)
         if create_user_request.phone_number and get_author_by_phone(db=db_session, phone_number=create_user_request.phone_number):

@@ -14,7 +14,7 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.authors.plan_authors_model import Author, AuthorSocialMediaAccount
 from pecha_api.plans.authors.plan_authors_repository import get_author_by_id, get_all_authors, \
-    update_author, find_author_by_id, find_author_by_email, get_author_by_phone
+    update_author, find_author_by_id
 import jose
 
 from pecha_api.plans.authors.plan_authors_response_models import AuthorInfoResponse, SocialMediaProfile, \
@@ -204,36 +204,21 @@ def validate_and_extract_author_details(token: str) -> Author:
         payload = validate_token(token)
         with SessionLocal() as db_session:
             subject = payload.get("sub")
-            email = payload.get("email")
-            phone_number = payload.get("phone_number")
             try:
                 author_id = UUID(str(subject)) if subject is not None else None
             except (TypeError, ValueError):
                 author_id = None
 
-            author = find_author_by_id(db=db_session, author_id=author_id) if author_id is not None else None
-
-            # Falls back to the token's own contact claims whenever the id
-            # lookup misses - covering both non-UUID (Auth0) subjects and
-            # WeBuddhist website (User) tokens, whose "sub" is a User id in
-            # an entirely different id space from Authors. "email" and
-            # "phone_number" are populated from the live account's current
-            # DB row at token-mint time, so a match proves the token holder
-            # currently owns that mailbox/number - letting the same person's
-            # website login be recognized as their CMS/Studio Author account.
-            if author is None and isinstance(email, str) and email:
-                author = find_author_by_email(db=db_session, email=email)
-            if author is None and isinstance(phone_number, str) and phone_number:
-                author = get_author_by_phone(db=db_session, phone_number=phone_number)
-
+            if author_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=ErrorConstants.TOKEN_ERROR_MESSAGE,
+                )
+            author = find_author_by_id(db=db_session, author_id=author_id)
             if author is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail=(
-                        f"User not found: {email} does not exist in the system"
-                        if email
-                        else ErrorConstants.TOKEN_ERROR_MESSAGE
-                    ),
+                    detail=ErrorConstants.TOKEN_ERROR_MESSAGE,
                 )
             return author
     except ExpiredSignatureError as exception:

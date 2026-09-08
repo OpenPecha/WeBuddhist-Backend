@@ -418,9 +418,8 @@ def test_create_user_with_facebook_success():
 
 
 def test_create_user_rejects_email_matching_existing_author():
-    """Self-registration must not be able to claim an existing Author's
-    email, since validate_and_extract_author_details() trusts a token's
-    email claim to resolve the matching Author account."""
+    """Self-registration must not claim an existing Author's email so
+    invitation lookup and future account-linking stay unambiguous."""
     create_user_request = CreateUserRequest(
         firstname="John",
         lastname="Doe",
@@ -449,7 +448,7 @@ def test_create_user_rejects_email_matching_existing_author():
 
 
 def test_create_user_rejects_phone_matching_existing_author():
-    """Same as the email case, but for the phone_number claim."""
+    """Self-registration must not claim an existing Author's phone."""
     create_user_request = CreateUserRequest(
         firstname="John",
         lastname="Doe",

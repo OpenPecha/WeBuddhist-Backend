@@ -4424,12 +4424,9 @@ def test_get_group_permission_phone_only_author_no_collision():
     assert result.author_id == author.id
 
 
-def test_get_group_permission_author_uuid_collides_with_user_resolves_as_author():
-    """A genuine CMS Author whose id also happens to match a Users row must
-    keep their Author role and permission - the token's own email claim
-    (the Author's real email, set at mint time) positively identifies this
-    as an Author token, not a User token, even though the User lookup also
-    succeeds for the same id.
+def test_get_group_permission_author_uuid_collides_with_user_is_not_author():
+    """A live User at the same id as an Author is a website login, not a
+    CMS identity. Contact claims must not disambiguate the collision.
     """
     colliding_user = _make_user(email="unrelated-user@example.org")
     author = _make_author(
@@ -4445,22 +4442,19 @@ def test_get_group_permission_author_uuid_collides_with_user_resolves_as_author(
         return_value=author,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_user_by_id",
-        return_value=colliding_user,  # same id also resolves as a User
+        return_value=colliding_user,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_member_role",
-        return_value=AuthorGroupMemberRole.OWNER,
     ):
         _session_local_context(mock_session)
         result = get_group_permission(token="t", group_id=group.id)
 
     assert result.group_id == group.id
-    assert result.has_permission is True
-    assert result.role == AuthorGroupMemberRole.OWNER
+    assert result.has_permission is False
+    assert result.role is None
     assert result.is_super_admin is False
-    assert result.author_id == author.id
+    assert result.author_id is None
 
 
 def test_get_group_permission_phone_only_user_uuid_collides_with_author():
@@ -4499,13 +4493,8 @@ def test_get_group_permission_phone_only_user_uuid_collides_with_author():
     assert result.author_id is None
 
 
-def test_get_group_permission_phone_only_author_uuid_collides_with_user_resolves_as_author():
-    """A genuine phone-only CMS Author (no email) whose id also happens to
-    match a Users row must keep their Author role and permission - the
-    token's own phone_number claim (the Author's real phone, set at mint
-    time) positively identifies this as an Author token, exactly like the
-    email channel does for Authors who have an email.
-    """
+def test_get_group_permission_phone_only_author_uuid_collides_with_user_is_not_author():
+    """A phone match does not bind a colliding User token to that Author."""
     colliding_user = _make_user(email="unrelated-user@example.org", phone_number="+15559998888")
     author = _make_author(author_id=colliding_user.id, email=None, is_admin=False)
     author.phone_number = "+15551234567"
@@ -4519,22 +4508,19 @@ def test_get_group_permission_phone_only_author_uuid_collides_with_user_resolves
         return_value=author,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_user_by_id",
-        return_value=colliding_user,  # same id also resolves as a User
+        return_value=colliding_user,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_member_role",
-        return_value=AuthorGroupMemberRole.ADMIN,
     ):
         _session_local_context(mock_session)
         result = get_group_permission(token="t", group_id=group.id)
 
     assert result.group_id == group.id
-    assert result.has_permission is True
-    assert result.role == AuthorGroupMemberRole.ADMIN
+    assert result.has_permission is False
+    assert result.role is None
     assert result.is_super_admin is False
-    assert result.author_id == author.id
+    assert result.author_id is None
 
 
 def test_get_group_permission_stale_phone_claim_does_not_deny_rightful_author():
@@ -4572,16 +4558,9 @@ def test_get_group_permission_stale_phone_claim_does_not_deny_rightful_author():
     assert result.author_id == author.id
 
 
-def test_get_group_permission_website_user_resolves_author_by_email():
-    """A WeBuddhist website (User) token has no Author at its own subject id
-    - Users and Authors are separate tables with independently generated
-    ids that are never meant to coincide, so find_author_by_id on a User's
-    own id is expected to miss. The endpoint's whole purpose is to still
-    recognize this person as the Author sharing their verified email, by
-    looking the Author up via the token's own "email" claim.
-    """
+def test_get_group_permission_website_user_does_not_resolve_author_by_email():
+    """A website User token must not inherit CMS access from a shared email."""
     user = _make_user(email="shared@example.org")
-    author = _make_author(author_id=uuid4(), email="shared@example.org", is_admin=False)
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
@@ -4589,37 +4568,30 @@ def test_get_group_permission_website_user_resolves_author_by_email():
         return_value={"sub": str(user.id), "email": "shared@example.org"},
     ), patch(
         "pecha_api.plans.groups.groups_service.find_author_by_id",
-        return_value=None,  # subject is the User's id, not the Author's
+        return_value=None,
     ), patch(
         "pecha_api.plans.groups.groups_service.find_author_by_email",
-        return_value=author,
-    ), patch(
+        return_value=_make_author(email="shared@example.org", is_admin=False),
+    ) as by_email, patch(
         "pecha_api.plans.groups.groups_service.get_user_by_id",
         return_value=user,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_member_role",
-        return_value=AuthorGroupMemberRole.OWNER,
     ):
         _session_local_context(mock_session)
         result = get_group_permission(token="t", group_id=group.id)
 
+    by_email.assert_not_called()
     assert result.group_id == group.id
-    assert result.has_permission is True
-    assert result.role == AuthorGroupMemberRole.OWNER
-    assert result.author_id == author.id
+    assert result.has_permission is False
+    assert result.role is None
+    assert result.author_id is None
 
 
-def test_get_group_permission_website_user_resolves_author_by_phone():
-    """Same as the email case, but via the token's "phone_number" claim,
-    for a website user who signed up/verified with a phone rather than an
-    email.
-    """
+def test_get_group_permission_website_user_does_not_resolve_author_by_phone():
+    """A website User token must not inherit CMS access from a shared phone."""
     user = _make_user(email=None, phone_number="+15551234567")
-    author = _make_author(author_id=uuid4(), email=None, is_admin=False)
-    author.phone_number = "+15551234567"
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
@@ -4629,33 +4601,22 @@ def test_get_group_permission_website_user_resolves_author_by_phone():
         "pecha_api.plans.groups.groups_service.find_author_by_id",
         return_value=None,
     ), patch(
-        "pecha_api.plans.groups.groups_service.find_author_by_email",
-        return_value=None,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_author_by_phone",
-        return_value=author,
-    ), patch(
         "pecha_api.plans.groups.groups_service.get_user_by_id",
         return_value=user,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_member_role",
-        return_value=AuthorGroupMemberRole.ADMIN,
     ):
         _session_local_context(mock_session)
         result = get_group_permission(token="t", group_id=group.id)
-
     assert result.group_id == group.id
-    assert result.has_permission is True
-    assert result.role == AuthorGroupMemberRole.ADMIN
-    assert result.author_id == author.id
+    assert result.has_permission is False
+    assert result.role is None
+    assert result.author_id is None
 
 
 def test_get_group_permission_no_contact_match_no_author():
-    """Token with an email/phone that matches neither an Author by id nor
-    by contact info → has_permission: false, with no fabricated Author.
+    """A website User with no Author at their subject id has no CMS access.
     """
     user = _make_user(email="nobody-links-to-me@example.org")
     group = _make_group()
