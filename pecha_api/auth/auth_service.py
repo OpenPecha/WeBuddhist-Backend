@@ -23,6 +23,7 @@ from ..users.users_repository import (
     save_phone_user,
     save_user,
 )
+from ..plans.authors.plan_authors_repository import find_author_by_email, get_author_by_phone
 from ..users.user_resolution import resolve_user_from_payload
 from .auth_repository import (
     create_access_token,
@@ -50,60 +51,78 @@ def register_user_with_source(create_user_request: CreateUserRequest, registrati
     return generate_token_user(registered_user)
 
 
-def create_user(create_user_request: CreateUserRequest, registration_source: RegistrationSource) -> Users:
-    logging.debug(f"RegistrationSource: {registration_source.value}")
-    logging.debug(f"Creating user with first name: {create_user_request.firstname}")
-
-    # Validate that either email or phone is provided
+def _require_email_or_phone(create_user_request: CreateUserRequest) -> None:
     if not create_user_request.email and not create_user_request.phone_number:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Either email or phone number is required"
         )
 
+
+def _apply_phone_registration(create_user_request: CreateUserRequest) -> None:
+    if not create_user_request.phone_number:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Phone number is required for phone registration"
+        )
+    with SessionLocal() as db_session:
+        if get_user_by_phone(db_session, create_user_request.phone_number):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Phone number already registered"
+            )
+
+
+def _apply_email_registration(create_user_request: CreateUserRequest, new_user: Users) -> None:
+    if not create_user_request.email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email is required for email registration"
+        )
+    _validate_password(create_user_request.password)
+    new_user.password = get_hashed_password(create_user_request.password)
+
+
+def _raise_if_contact_taken(db_session, create_user_request: CreateUserRequest) -> None:
+    # Keep User and Author contact records distinct so invitation
+    # lookup and any future explicit account-linking stay unambiguous.
+    email_taken = create_user_request.email and (
+        get_user_by_email_or_none(db=db_session, email=create_user_request.email)
+        or find_author_by_email(db=db_session, email=create_user_request.email)
+    )
+    phone_taken = (
+        create_user_request.phone_number
+        and get_author_by_phone(db=db_session, phone_number=create_user_request.phone_number)
+    )
+    if email_taken or phone_taken:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ErrorConstants.USER_ALREADY_EXISTS)
+
+
+def create_user(create_user_request: CreateUserRequest, registration_source: RegistrationSource) -> Users:
+    logging.debug(f"RegistrationSource: {registration_source.value}")
+    logging.debug(f"Creating user with first name: {create_user_request.firstname}")
+
+    _require_email_or_phone(create_user_request)
+
     new_user = Users(**create_user_request.model_dump(exclude_unset=True))
     new_user.is_admin = False
+    new_user.username = generate_and_validate_username(
+        first_name=create_user_request.firstname,
+        last_name=create_user_request.lastname,
+        phone_number=create_user_request.phone_number,
+    )
 
-    username = generate_and_validate_username(first_name=create_user_request.firstname,
-                                              last_name=create_user_request.lastname,
-                                              phone_number=create_user_request.phone_number)
-    new_user.username = username
-
-    # Handle phone registration
     if registration_source == RegistrationSource.PHONE:
-        if not create_user_request.phone_number:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Phone number is required for phone registration"
-            )
-        # Check if phone already exists
-        with SessionLocal() as db_session:
-            existing_phone_user = get_user_by_phone(db_session, create_user_request.phone_number)
-            if existing_phone_user:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Phone number already registered"
-                )
-
-    # Handle email registration (traditional)
+        _apply_phone_registration(create_user_request)
     if registration_source == RegistrationSource.EMAIL:
-        if not create_user_request.email:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email is required for email registration"
-            )
-        _validate_password(create_user_request.password)
-        hashed_password = get_hashed_password(create_user_request.password)
-        new_user.password = hashed_password
+        _apply_email_registration(create_user_request, new_user)
 
     # For social logins (Google, Facebook, Apple, etc.), password is not required
     new_user.registration_source = registration_source.value
 
     with SessionLocal() as db_session:
-        if create_user_request.email and get_user_by_email_or_none(db=db_session, email=create_user_request.email):
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=ErrorConstants.USER_ALREADY_EXISTS)
-        saved_user = save_user(db=db_session, user=new_user)
-        return saved_user
+        _raise_if_contact_taken(db_session, create_user_request)
+        return save_user(db=db_session, user=new_user)
 
 
 def _validate_password(password: str):
