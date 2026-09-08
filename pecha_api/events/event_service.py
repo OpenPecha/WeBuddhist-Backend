@@ -289,6 +289,7 @@ def _event_to_dto(
             calendar_type=event.recurrence_calendar_type,
             month=event.recurrence_month,
             day=event.recurrence_day,
+            day_of_week=event.recurrence_day_of_week,
             duration_days=event.duration_days,
         )
     
@@ -687,6 +688,7 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
         recurrence_calendar_type = request.recurrence.calendar_type
         recurrence_month = request.recurrence.month
         recurrence_day = request.recurrence.day
+        recurrence_day_of_week = request.recurrence.day_of_week
         duration_days = request.recurrence.duration_days
     else:
         start_date = request.start_date
@@ -697,6 +699,7 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
         recurrence_calendar_type = None
         recurrence_month = None
         recurrence_day = None
+        recurrence_day_of_week = None
         duration_days = 1
 
     event = Event(
@@ -718,6 +721,7 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
         recurrence_calendar_type=recurrence_calendar_type,
         recurrence_month=recurrence_month,
         recurrence_day=recurrence_day,
+        recurrence_day_of_week=recurrence_day_of_week,
         duration_days=duration_days,
         created_by=current_author.email,
     )
@@ -802,6 +806,7 @@ def _apply_recurrence_update(event: Event, request: UpdateEventRequest) -> tuple
     event.recurrence_calendar_type = request.recurrence.calendar_type
     event.recurrence_month = request.recurrence.month
     event.recurrence_day = request.recurrence.day
+    event.recurrence_day_of_week = request.recurrence.day_of_week
     event.duration_days = request.recurrence.duration_days
     # Reminders are out of scope for recurring events.
     return True, False

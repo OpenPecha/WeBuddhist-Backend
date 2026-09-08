@@ -44,6 +44,7 @@ def _event_stub(group_id=None, is_recurring=False, start_date=None) -> SimpleNam
         recurrence_calendar_type=None,
         recurrence_month=6 if is_recurring else None,
         recurrence_day=15 if is_recurring else None,
+        recurrence_day_of_week=None,
         duration_days=1,
         metadata_entries=[],
         links=[],
