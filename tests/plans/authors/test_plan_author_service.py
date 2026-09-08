@@ -5,7 +5,7 @@ from jose import JWTError
 from jose.exceptions import JWTClaimsError
 from jwt import ExpiredSignatureError
 from starlette import status
-from uuid import uuid4
+from uuid import uuid4, UUID
 from typing import List
 
 from pecha_api.plans.platform_enums import PlatformRole
@@ -40,12 +40,12 @@ class TestValidateAndExtractAuthorDetails:
     """Test cases for validate_and_extract_author_details function."""
 
     @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
-    @patch('pecha_api.plans.authors.plan_authors_service.get_author_by_email')
+    @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_email')
     @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
     def test_validate_and_extract_author_details_success(
         self, 
         mock_validate_token, 
-        mock_get_author_by_email, 
+        mock_find_author_by_email, 
         mock_session_local
     ):
         """Test successful token validation and author extraction."""
@@ -56,7 +56,7 @@ class TestValidateAndExtractAuthorDetails:
         mock_db_session = MagicMock()
         mock_session_local.return_value.__enter__.return_value = mock_db_session
         mock_validate_token.return_value = expected_payload
-        mock_get_author_by_email.return_value = expected_author
+        mock_find_author_by_email.return_value = expected_author
 
         # Act
         result = validate_and_extract_author_details(token)
@@ -64,7 +64,107 @@ class TestValidateAndExtractAuthorDetails:
         # Assert
         assert result == expected_author
         mock_validate_token.assert_called_once_with(token)
-        mock_get_author_by_email.assert_called_once_with(db=mock_db_session, email="test@example.com")
+        mock_find_author_by_email.assert_called_once_with(db=mock_db_session, email="test@example.com")
+
+    @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
+    @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_email')
+    @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_id')
+    @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
+    def test_validate_and_extract_author_details_website_token_falls_back_to_email(
+        self,
+        mock_validate_token,
+        mock_find_author_by_id,
+        mock_find_author_by_email,
+        mock_session_local
+    ):
+        """A WeBuddhist website (User) token has a UUID "sub", but it's the
+        User's id, not an Author's - Users and Authors are independently
+        generated id spaces. The id lookup must miss, and the function must
+        still resolve the same person's Author account via the token's own
+        email claim.
+        """
+        # Arrange
+        token = "website_token"
+        user_id = str(uuid4())
+        expected_payload = {"sub": user_id, "email": "person@example.com"}
+        expected_author = MagicMock()
+        mock_db_session = MagicMock()
+        mock_session_local.return_value.__enter__.return_value = mock_db_session
+        mock_validate_token.return_value = expected_payload
+        mock_find_author_by_id.return_value = None  # no Author at the User's id
+        mock_find_author_by_email.return_value = expected_author
+
+        # Act
+        result = validate_and_extract_author_details(token)
+
+        # Assert
+        assert result == expected_author
+        mock_find_author_by_id.assert_called_once_with(db=mock_db_session, author_id=UUID(user_id))
+        mock_find_author_by_email.assert_called_once_with(db=mock_db_session, email="person@example.com")
+
+    @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
+    @patch('pecha_api.plans.authors.plan_authors_service.get_author_by_phone')
+    @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_email')
+    @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_id')
+    @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
+    def test_validate_and_extract_author_details_website_token_falls_back_to_phone(
+        self,
+        mock_validate_token,
+        mock_find_author_by_id,
+        mock_find_author_by_email,
+        mock_get_author_by_phone,
+        mock_session_local
+    ):
+        """Same as the email case, but via the token's "phone_number" claim,
+        for a website user with no email on file.
+        """
+        # Arrange
+        token = "website_token"
+        user_id = str(uuid4())
+        expected_payload = {"sub": user_id, "phone_number": "+15551234567"}
+        expected_author = MagicMock()
+        mock_db_session = MagicMock()
+        mock_session_local.return_value.__enter__.return_value = mock_db_session
+        mock_validate_token.return_value = expected_payload
+        mock_find_author_by_id.return_value = None
+        mock_get_author_by_phone.return_value = expected_author
+
+        # Act
+        result = validate_and_extract_author_details(token)
+
+        # Assert
+        assert result == expected_author
+        mock_find_author_by_email.assert_not_called()
+        mock_get_author_by_phone.assert_called_once_with(db=mock_db_session, phone_number="+15551234567")
+
+    @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
+    @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_email')
+    @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_id')
+    @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
+    def test_validate_and_extract_author_details_website_token_no_matching_author(
+        self,
+        mock_validate_token,
+        mock_find_author_by_id,
+        mock_find_author_by_email,
+        mock_session_local
+    ):
+        """A website token whose id and contact claims match no Author at
+        all → 401, with no fabricated Author.
+        """
+        # Arrange
+        token = "website_token"
+        user_id = str(uuid4())
+        mock_session_local.return_value.__enter__.return_value = MagicMock()
+        mock_validate_token.return_value = {"sub": user_id, "email": "nobody@example.com"}
+        mock_find_author_by_id.return_value = None
+        mock_find_author_by_email.return_value = None
+
+        # Act & Assert
+        with pytest.raises(HTTPException) as exc_info:
+            validate_and_extract_author_details(token)
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+        assert "nobody@example.com" in exc_info.value.detail
 
     @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
     def test_validate_and_extract_author_details_missing_email(
@@ -186,12 +286,12 @@ class TestValidateAndExtractAuthorDetails:
         assert exc_info.value.detail == ErrorConstants.TOKEN_ERROR_MESSAGE
 
     @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
-    @patch('pecha_api.plans.authors.plan_authors_service.get_author_by_email')
+    @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_email')
     @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
     def test_validate_and_extract_author_details_database_error(
         self, 
         mock_validate_token, 
-        mock_get_author_by_email, 
+        mock_find_author_by_email, 
         mock_session_local
     ):
         """Test handling of database session error."""
@@ -208,12 +308,12 @@ class TestValidateAndExtractAuthorDetails:
         assert str(exc_info.value) == "Database connection error"
 
     @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
-    @patch('pecha_api.plans.authors.plan_authors_service.get_author_by_email')
+    @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_email')
     @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
     def test_validate_and_extract_author_details_author_not_found(
         self, 
         mock_validate_token, 
-        mock_get_author_by_email, 
+        mock_find_author_by_email, 
         mock_session_local
     ):
         """Test handling when author is not found in database."""
@@ -223,7 +323,7 @@ class TestValidateAndExtractAuthorDetails:
         mock_db_session = MagicMock()
         mock_session_local.return_value.__enter__.return_value = mock_db_session
         mock_validate_token.return_value = expected_payload
-        mock_get_author_by_email.side_effect = HTTPException(
+        mock_find_author_by_email.side_effect = HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, 
             detail="User not found"
         )
@@ -236,12 +336,12 @@ class TestValidateAndExtractAuthorDetails:
         assert exc_info.value.detail == "User not found"
 
     @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
-    @patch('pecha_api.plans.authors.plan_authors_service.get_author_by_email')
+    @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_email')
     @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
     def test_validate_and_extract_author_details_author_lookup_returns_none(
         self,
         mock_validate_token,
-        mock_get_author_by_email,
+        mock_find_author_by_email,
         mock_session_local
     ):
         """A well-formed token for an email with no author row is unauthorized."""
@@ -249,7 +349,7 @@ class TestValidateAndExtractAuthorDetails:
         token = "valid_token"
         mock_session_local.return_value.__enter__.return_value = MagicMock()
         mock_validate_token.return_value = {"email": "nonexistent@example.com"}
-        mock_get_author_by_email.return_value = None
+        mock_find_author_by_email.return_value = None
 
         # Act & Assert
         with pytest.raises(HTTPException) as exc_info:
@@ -259,12 +359,12 @@ class TestValidateAndExtractAuthorDetails:
         assert "nonexistent@example.com" in exc_info.value.detail
 
     @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
-    @patch('pecha_api.plans.authors.plan_authors_service.get_author_by_email')
+    @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_email')
     @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
     def test_validate_and_extract_author_details_logging_debug_called(
         self, 
         mock_validate_token, 
-        mock_get_author_by_email, 
+        mock_find_author_by_email, 
         mock_session_local
     ):
         """Test that logging.debug is called for exceptions."""
@@ -280,12 +380,12 @@ class TestValidateAndExtractAuthorDetails:
             mock_logging.assert_called_once_with("exception: Invalid token format")
 
     @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
-    @patch('pecha_api.plans.authors.plan_authors_service.get_author_by_email')
+    @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_email')
     @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
     def test_validate_and_extract_author_details_database_session_context_manager(
         self, 
         mock_validate_token, 
-        mock_get_author_by_email, 
+        mock_find_author_by_email, 
         mock_session_local
     ):
         """Test that database session is properly used as context manager."""
@@ -298,7 +398,7 @@ class TestValidateAndExtractAuthorDetails:
         mock_session_context.__enter__.return_value = mock_db_session
         mock_session_local.return_value = mock_session_context
         mock_validate_token.return_value = expected_payload
-        mock_get_author_by_email.return_value = expected_author
+        mock_find_author_by_email.return_value = expected_author
 
         # Act
         result = validate_and_extract_author_details(token)
@@ -308,7 +408,7 @@ class TestValidateAndExtractAuthorDetails:
         mock_session_local.assert_called_once()
         mock_session_context.__enter__.assert_called_once()
         mock_session_context.__exit__.assert_called_once()
-        mock_get_author_by_email.assert_called_once_with(db=mock_db_session, email="test@example.com")
+        mock_find_author_by_email.assert_called_once_with(db=mock_db_session, email="test@example.com")
 
 
 class TestDataFactory:

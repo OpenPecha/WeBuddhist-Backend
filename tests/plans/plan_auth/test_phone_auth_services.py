@@ -237,10 +237,10 @@ def test_cms_author_resolution_uses_uuid_subject_before_email():
     ), patch(
         "pecha_api.plans.authors.plan_authors_service.SessionLocal",
     ) as session_local, patch(
-        "pecha_api.plans.authors.plan_authors_service.get_author_by_id",
+        "pecha_api.plans.authors.plan_authors_service.find_author_by_id",
         return_value=author,
     ) as by_id, patch(
-        "pecha_api.plans.authors.plan_authors_service.get_author_by_email",
+        "pecha_api.plans.authors.plan_authors_service.find_author_by_email",
     ) as by_email:
         db = _session(session_local)
         result = validate_and_extract_author_details("backend-token")

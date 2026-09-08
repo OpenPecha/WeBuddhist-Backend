@@ -10,7 +10,7 @@ from starlette import status
 from pecha_api.config import get, get_int
 from pecha_api.db.database import SessionLocal
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
-from pecha_api.plans.authors.plan_authors_repository import find_author_by_email, find_author_by_id
+from pecha_api.plans.authors.plan_authors_repository import find_author_by_email, find_author_by_id, get_author_by_phone
 from pecha_api.auth.auth_repository import validate_token
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details, validate_cms_author_details
 from pecha_api.plans.shared.permissions import (
@@ -2569,11 +2569,23 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
        back to the User, so a live colliding User's token can never be
        evaluated with an unrelated Author's group or super-admin
        permissions.
-    4. Only when the subject does not resolve to a confirmed Author do we
-       fall back to the User domain - reusing the exact-id User match when
-       there is one, or validate_and_extract_user_details's broader rules
-       otherwise (e.g. a non-UUID Auth0 subject).
-    5. has_permission mirrors the OWNER/ADMIN "manage group" role set used
+    4. When the subject does not resolve to an Author by id at all - the
+       normal case for a WeBuddhist website (User) token, since Users and
+       Authors are separate tables with independently generated ids that
+       are never meant to coincide - fall back to looking the Author up by
+       the token's own "email"/"phone_number" claims. Those claims are
+       populated from the live account's current DB row at mint time, so a
+       match proves the token holder currently owns that mailbox/number,
+       the same standard of evidence used for the id-collision case above.
+       This is what lets a single person's WeBuddhist app login report
+       accurate Studio/CMS permission for the Author profile sharing their
+       verified email or phone.
+    5. Only when the subject does not resolve to a confirmed Author by
+       either id or contact info do we fall back to the User domain -
+       reusing the exact-id User match when there is one, or
+       validate_and_extract_user_details's broader rules otherwise (e.g. a
+       non-UUID Auth0 subject).
+    6. has_permission mirrors the OWNER/ADMIN "manage group" role set used
        elsewhere in this module (see _GROUP_SETTINGS_ROLES), with the same
        super-admin bypass those checks use - reviewer platform role is not
        a blocker here since none of the actual group-settings/member-
@@ -2652,6 +2664,26 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
                 phone_match = _claim_confirms(token_phone, getattr(candidate_author, "phone_number", None))
                 if email_match or phone_match:
                     author = candidate_author
+
+        if author is None:
+            # The subject didn't resolve to an Author by id - the normal
+            # case for a WeBuddhist website (User) token, since Users and
+            # Authors are separate tables with independently generated ids
+            # that were never meant to coincide. The person behind the
+            # token can still be a genuine Author under the same verified
+            # contact info: "email"/"phone_number" are populated from the
+            # User's own current DB row at token-mint time (see
+            # generate_token_data), so a match here proves the token
+            # holder currently owns that mailbox/number, exactly like the
+            # id-collision confirmation above. Look the Author up by that
+            # contact info instead of leaving them permanently unresolved.
+            contact_author = None
+            if token_email:
+                contact_author = find_author_by_email(db=db, email=token_email)
+            if contact_author is None and token_phone:
+                contact_author = get_author_by_phone(db=db, phone_number=token_phone)
+            if contact_author is not None:
+                author = contact_author
 
         user = None
         if author is None:

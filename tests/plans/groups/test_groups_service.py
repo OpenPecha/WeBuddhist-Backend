@@ -4337,6 +4337,9 @@ def test_get_group_permission_user_uuid_matches_unrelated_author():
         "pecha_api.plans.groups.groups_service.find_author_by_id",
         return_value=colliding_author,  # same id, unrelated Author record
     ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
+        return_value=None,  # this user's own email has no Author account
+    ), patch(
         "pecha_api.plans.groups.groups_service.get_user_by_id",
         return_value=user,  # live Users row exists at this exact id
     ), patch(
@@ -4569,13 +4572,16 @@ def test_get_group_permission_stale_phone_claim_does_not_deny_rightful_author():
     assert result.author_id == author.id
 
 
-def test_get_group_permission_no_email_fallback():
-    """Token with email but no matching Author UUID → has_permission: false
-    
-    This tests Issue 2 & 5: Contact field mismatch prevention.
-    Email-based fallback should not be used for permission checks.
+def test_get_group_permission_website_user_resolves_author_by_email():
+    """A WeBuddhist website (User) token has no Author at its own subject id
+    - Users and Authors are separate tables with independently generated
+    ids that are never meant to coincide, so find_author_by_id on a User's
+    own id is expected to miss. The endpoint's whole purpose is to still
+    recognize this person as the Author sharing their verified email, by
+    looking the Author up via the token's own "email" claim.
     """
     user = _make_user(email="shared@example.org")
+    author = _make_author(author_id=uuid4(), email="shared@example.org", is_admin=False)
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
@@ -4583,7 +4589,86 @@ def test_get_group_permission_no_email_fallback():
         return_value={"sub": str(user.id), "email": "shared@example.org"},
     ), patch(
         "pecha_api.plans.groups.groups_service.find_author_by_id",
-        return_value=None,  # UUID doesn't match any Author (email fallback not used)
+        return_value=None,  # subject is the User's id, not the Author's
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_user_by_id",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_member_role",
+        return_value=AuthorGroupMemberRole.OWNER,
+    ):
+        _session_local_context(mock_session)
+        result = get_group_permission(token="t", group_id=group.id)
+
+    assert result.group_id == group.id
+    assert result.has_permission is True
+    assert result.role == AuthorGroupMemberRole.OWNER
+    assert result.author_id == author.id
+
+
+def test_get_group_permission_website_user_resolves_author_by_phone():
+    """Same as the email case, but via the token's "phone_number" claim,
+    for a website user who signed up/verified with a phone rather than an
+    email.
+    """
+    user = _make_user(email=None, phone_number="+15551234567")
+    author = _make_author(author_id=uuid4(), email=None, is_admin=False)
+    author.phone_number = "+15551234567"
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(user.id), "phone_number": "+15551234567"},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_author_by_phone",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_user_by_id",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_member_role",
+        return_value=AuthorGroupMemberRole.ADMIN,
+    ):
+        _session_local_context(mock_session)
+        result = get_group_permission(token="t", group_id=group.id)
+
+    assert result.group_id == group.id
+    assert result.has_permission is True
+    assert result.role == AuthorGroupMemberRole.ADMIN
+    assert result.author_id == author.id
+
+
+def test_get_group_permission_no_contact_match_no_author():
+    """Token with an email/phone that matches neither an Author by id nor
+    by contact info → has_permission: false, with no fabricated Author.
+    """
+    user = _make_user(email="nobody-links-to-me@example.org")
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(user.id), "email": "nobody-links-to-me@example.org"},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
+        return_value=None,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_user_by_id",
         return_value=user,
@@ -4594,7 +4679,6 @@ def test_get_group_permission_no_email_fallback():
         _session_local_context(mock_session)
         result = get_group_permission(token="t", group_id=group.id)
 
-    # Should NOT resolve to an Author via email fallback
     assert result.group_id == group.id
     assert result.has_permission is False
     assert result.role is None
