@@ -7,6 +7,7 @@ import pytest
 from fastapi import HTTPException
 
 from pecha_api.events.event_reminder_service import REMINDER_TYPE_T_MINUS_10, REMINDER_TYPE_T_ZERO
+from pecha_api.notification.notification_preference_enums import NotificationType
 from pecha_api.events.reminder_notification_service import (
     _build_reminder_copy,
     _get_event_name,
@@ -221,6 +222,32 @@ class TestGetEventReminderTargets:
             mock_session.return_value.__enter__.return_value, event.id, REMINDER_TYPE_T_ZERO, fire_at,
         )
         assert mock_superseded.call_count == 2
+
+    @patch(f"{MODULE}._reminder_superseded", return_value=False)
+    @patch(f"{MODULE}.get_active_push_devices_by_user_ids", return_value={})
+    @patch(f"{MODULE}.get_event_participants_paginated", return_value=([], 0))
+    @patch(f"{MODULE}._get_event_name", return_value="Event")
+    @patch(f"{MODULE}.get_event_by_id")
+    @patch(f"{MODULE}.SessionLocal")
+    def test_participants_are_filtered_by_the_event_reminder_preference(
+        self, mock_session, mock_get_event, _mock_name, mock_participants, _mock_devices, _superseded,
+    ):
+        """Regression guard: EVENT_REMINDER is a user-facing toggle, so the
+        participant query has to resolve it - otherwise the API reports the
+        reminder as off while it keeps being delivered. It must reach the
+        query, not post-filter the page, so `total` matches the page."""
+        mock_session.return_value.__enter__.return_value = MagicMock()
+        event = MockEvent()
+        mock_get_event.return_value = event
+
+        get_event_reminder_targets(
+            event_id=event.id, reminder_type=REMINDER_TYPE_T_ZERO, minutes_before=10,
+        )
+
+        assert (
+            mock_participants.call_args.kwargs["notification_type"]
+            == NotificationType.EVENT_REMINDER
+        )
 
     @patch(f"{MODULE}._reminder_superseded", return_value=False)
     @patch(f"{MODULE}.get_active_push_devices_by_user_ids", return_value={})

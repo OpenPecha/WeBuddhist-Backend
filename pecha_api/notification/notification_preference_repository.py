@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import and_, delete, exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from pecha_api.notification.notification_preference_enums import (
@@ -47,6 +47,37 @@ def index_by_key(
     rows: List[UserNotificationPreference],
 ) -> Dict[PreferenceKey, UserNotificationPreference]:
     return {(row.notification_type, row.scope_id): row for row in rows}
+
+
+def global_preference_blocks(
+    user_id_column,
+    *,
+    notification_type: NotificationType,
+    channel: NotificationChannel = NotificationChannel.PUSH,
+):
+    """A correlated EXISTS that is true when a GLOBAL row suppresses delivery.
+
+    Types with no group scope - `EVENT_REMINDER`, `SERIES` - resolve against
+    the GLOBAL row alone, so the whole of the resolution rule collapses to a
+    single NOT EXISTS that drops into any recipient query holding a user id
+    column, ahead of its pagination and inside its count. Group-scoped types
+    still need the two-join form in
+    `chat/notification_repository._preference_filtered_join`, where a GROUP
+    row can override the global one.
+    """
+    return exists().where(
+        UserNotificationPreference.user_id == user_id_column,
+        UserNotificationPreference.notification_type == notification_type,
+        UserNotificationPreference.channel == channel,
+        UserNotificationPreference.scope_id.is_(None),
+        or_(
+            UserNotificationPreference.enabled.is_(False),
+            and_(
+                UserNotificationPreference.muted_until.isnot(None),
+                UserNotificationPreference.muted_until > func.now(),
+            ),
+        ),
+    )
 
 
 def get_preference(

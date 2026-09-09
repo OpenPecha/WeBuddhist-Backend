@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
@@ -184,16 +185,39 @@ def _assert_group_member(db: Session, *, group_id: UUID, user_id: UUID) -> None:
         )
 
 
-def _apply_updates(
-    db: Session,
-    *,
-    user_id: UUID,
-    channel: NotificationChannel,
-    scope_id: Optional[UUID],
+@dataclass
+class _PendingChange:
+    """The fields one PATCH body ends up writing for a single type."""
+
+    enabled: Optional[bool] = None
+    muted_until: Optional[datetime] = None
+    set_enabled: bool = False
+    set_muted_until: bool = False
+
+    def merge(self, entry: NotificationPreferenceUpdateDTO) -> None:
+        if entry.sets_enabled:
+            self.enabled = entry.enabled
+            self.set_enabled = True
+        if entry.sets_muted_until:
+            self.muted_until = entry.muted_until
+            self.set_muted_until = True
+
+
+def _collect_changes(
     request: UpdateNotificationPreferencesRequest,
+    *,
+    group_scoped: bool,
     now: datetime,
-) -> None:
-    group_scoped = scope_id is not None
+) -> Dict[NotificationType, _PendingChange]:
+    """Fold the body into at most one write per type.
+
+    One body can name the same type twice — `ALL` to mute a group, then an
+    explicit type to keep one thing on — and two writes for one key would
+    stage two inserts that collide on the unique index at commit. Folding
+    first also gives the later entry the last word field by field, which is
+    the same merge rule PATCH already applies across requests.
+    """
+    changes: Dict[NotificationType, _PendingChange] = {}
 
     for entry in request.preferences:
         if entry.sets_muted_until and entry.muted_until is not None:
@@ -207,17 +231,38 @@ def _apply_updates(
             )
 
         for notification_type in _expand(entry, group_scoped=group_scoped):
-            upsert_preference(
-                db=db,
-                user_id=user_id,
-                notification_type=notification_type,
-                channel=channel,
-                scope_id=scope_id,
-                enabled=entry.enabled,
-                muted_until=entry.muted_until,
-                set_enabled=entry.sets_enabled,
-                set_muted_until=entry.sets_muted_until,
-            )
+            changes.setdefault(notification_type, _PendingChange()).merge(entry)
+
+    return changes
+
+
+def _apply_updates(
+    db: Session,
+    *,
+    user_id: UUID,
+    channel: NotificationChannel,
+    scope_id: Optional[UUID],
+    request: UpdateNotificationPreferencesRequest,
+    now: datetime,
+) -> None:
+    changes = _collect_changes(
+        request,
+        group_scoped=scope_id is not None,
+        now=now,
+    )
+
+    for notification_type, change in changes.items():
+        upsert_preference(
+            db=db,
+            user_id=user_id,
+            notification_type=notification_type,
+            channel=channel,
+            scope_id=scope_id,
+            enabled=change.enabled,
+            muted_until=change.muted_until,
+            set_enabled=change.set_enabled,
+            set_muted_until=change.set_muted_until,
+        )
 
     db.commit()
 

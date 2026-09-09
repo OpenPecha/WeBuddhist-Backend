@@ -21,6 +21,7 @@ from pecha_api.events.notification_response_models import (
     EventPushDeviceTargetDTO,
     EventReminderTargetsResponse,
 )
+from pecha_api.notification.notification_preference_enums import NotificationType
 from pecha_api.plans.response_message import NOT_FOUND
 
 _REMINDER_COPY = {
@@ -137,8 +138,14 @@ def get_event_reminder_targets(
             minutes_before=minutes_before,
         )
 
+        # EVENT_REMINDER has no per-group override (it is not group-scoped),
+        # so the participant query resolves it against the GLOBAL row alone.
         participant_rows, total = get_event_participants_paginated(
-            db=db, event_id=event_id, skip=skip, limit=limit,
+            db=db,
+            event_id=event_id,
+            skip=skip,
+            limit=limit,
+            notification_type=NotificationType.EVENT_REMINDER,
         )
         recipient_ids = [user.id for user, _ in participant_rows]
 

@@ -197,6 +197,93 @@ class TestSparseUpdates:
         )
         assert mock_upsert.call_count == len(V1_GROUP_TOGGLEABLE_TYPES)
 
+    @patch(f"{SERVICE}.upsert_preference")
+    def test_all_plus_an_explicit_type_writes_that_type_once(self, mock_upsert):
+        """Regression guard: the "mute the group but keep chat" body names
+        CHAT_MESSAGE twice, once through ALL. Two writes for one key stage two
+        inserts that collide on the partial unique index at commit, taking the
+        whole request down with an IntegrityError."""
+        _apply_updates(
+            db=MagicMock(),
+            user_id=USER_ID,
+            channel=NotificationChannel.PUSH,
+            scope_id=GROUP_ID,
+            request=UpdateNotificationPreferencesRequest(
+                preferences=[
+                    NotificationPreferenceUpdateDTO(
+                        notification_type="ALL",
+                        muted_until=NOW + timedelta(hours=8),
+                    ),
+                    NotificationPreferenceUpdateDTO(
+                        notification_type="CHAT_MESSAGE", enabled=True
+                    ),
+                ]
+            ),
+            now=NOW,
+        )
+
+        assert mock_upsert.call_count == len(V1_GROUP_TOGGLEABLE_TYPES)
+        written = [
+            call.kwargs["notification_type"] for call in mock_upsert.call_args_list
+        ]
+        assert len(written) == len(set(written))
+
+    @patch(f"{SERVICE}.upsert_preference")
+    def test_the_later_entry_wins_field_by_field(self, mock_upsert):
+        """Merging keeps the snooze ALL set and takes `enabled` from the
+        entry that named it - neither field is lost to the other."""
+        muted_until = NOW + timedelta(hours=8)
+        _apply_updates(
+            db=MagicMock(),
+            user_id=USER_ID,
+            channel=NotificationChannel.PUSH,
+            scope_id=GROUP_ID,
+            request=UpdateNotificationPreferencesRequest(
+                preferences=[
+                    NotificationPreferenceUpdateDTO(
+                        notification_type="ALL", muted_until=muted_until
+                    ),
+                    NotificationPreferenceUpdateDTO(
+                        notification_type="EVENT", enabled=False
+                    ),
+                ]
+            ),
+            now=NOW,
+        )
+
+        event_call = next(
+            call
+            for call in mock_upsert.call_args_list
+            if call.kwargs["notification_type"] == NotificationType.EVENT
+        )
+        assert event_call.kwargs["set_muted_until"] is True
+        assert event_call.kwargs["muted_until"] == muted_until
+        assert event_call.kwargs["set_enabled"] is True
+        assert event_call.kwargs["enabled"] is False
+
+    @patch(f"{SERVICE}.upsert_preference")
+    def test_the_same_type_twice_collapses_to_one_write(self, mock_upsert):
+        _apply_updates(
+            db=MagicMock(),
+            user_id=USER_ID,
+            channel=NotificationChannel.PUSH,
+            scope_id=GROUP_ID,
+            request=UpdateNotificationPreferencesRequest(
+                preferences=[
+                    NotificationPreferenceUpdateDTO(
+                        notification_type="EVENT", enabled=True
+                    ),
+                    NotificationPreferenceUpdateDTO(
+                        notification_type="EVENT", enabled=False
+                    ),
+                ]
+            ),
+            now=NOW,
+        )
+
+        assert mock_upsert.call_count == 1
+        assert mock_upsert.call_args.kwargs["enabled"] is False
+
     def test_past_muted_until_is_rejected(self):
         with pytest.raises(HTTPException) as exception:
             _apply_updates(
