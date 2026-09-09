@@ -1,3 +1,4 @@
+from typing import Set
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -40,7 +41,7 @@ def _get_mock_stale_content_search_hit_():
     }
 
 
-def _mock_edition_lookup_(live_edition_ids):
+def _mock_edition_lookup_(live_edition_ids: Set[str]):
     """Stand-in for the OpenPecha edition lookup used to drop stale index hits."""
 
     async def _fetch(edition_id: str):
