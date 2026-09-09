@@ -9,7 +9,6 @@ from uuid import UUID, uuid4
 from pecha_api.bookmarks.bookmark_enums import BookmarkType
 from pecha_api.texts.first_segment_preview_service import resolve_segment_by_ref
 from pecha_api.bookmarks.bookmark_utils import (
-    _resolve_text_segment,
     enrich_text_bookmark,
 )
 
@@ -65,104 +64,243 @@ async def test_resolve_segment_by_ref_with_non_uuid_uses_pecha_lookup():
 
 
 @pytest.mark.asyncio
-async def test_resolve_text_segment_with_matching_verse_id():
+async def test_fetch_openpecha_segment_returns_none_when_content_missing():
+    from pecha_api.bookmarks.bookmark_utils import _fetch_openpecha_segment
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_content",
+        new_callable=AsyncMock,
+        return_value=None,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_details",
+        new_callable=AsyncMock,
+        return_value={"text_id": str(uuid4())},
+    ):
+        result = await _fetch_openpecha_segment("missing-ref")
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_openpecha_segment_returns_none_when_text_id_missing():
+    from pecha_api.bookmarks.bookmark_utils import _fetch_openpecha_segment
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_content",
+        new_callable=AsyncMock,
+        return_value="content",
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_details",
+        new_callable=AsyncMock,
+        return_value={},
+    ):
+        result = await _fetch_openpecha_segment("some-ref")
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_openpecha_segment_returns_data_on_success():
+    from pecha_api.bookmarks.bookmark_utils import _fetch_openpecha_segment
+
     text_id = str(uuid4())
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_content",
+        new_callable=AsyncMock,
+        return_value="content",
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_details",
+        new_callable=AsyncMock,
+        return_value={"text_id": text_id},
+    ):
+        result = await _fetch_openpecha_segment("some-ref")
+
+    assert result == {"id": "some-ref", "text_id": text_id, "content": "content"}
+
+
+@pytest.mark.asyncio
+async def test_resolve_localized_openpecha_segment_returns_mapped_segment():
+    from pecha_api.bookmarks.bookmark_utils import _resolve_localized_openpecha_segment
+
     segment_id = str(uuid4())
-    mock_segment = MagicMock()
-    mock_segment.id = segment_id
-    mock_segment.text_id = text_id
+    target_text_id = str(uuid4())
+    mapped_id = str(uuid4())
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils.resolve_segment_by_ref",
+        "pecha_api.bookmarks.bookmark_utils.fetch_related_segments",
         new_callable=AsyncMock,
-        return_value=mock_segment,
+        return_value={"items": [{"id": mapped_id, "text_id": target_text_id}]},
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_content",
+        new_callable=AsyncMock,
+        return_value="Localized content",
     ):
-        resolved_id, resolved_segment = await _resolve_text_segment(
-            text_id=text_id,
-            verse_id=segment_id,
+        result = await _resolve_localized_openpecha_segment(
+            segment_id=segment_id,
+            target_text_id=target_text_id,
         )
 
-    assert resolved_id == segment_id
-    assert resolved_segment is mock_segment
+    assert result == {
+        "id": mapped_id,
+        "text_id": target_text_id,
+        "content": "Localized content",
+    }
 
 
 @pytest.mark.asyncio
-async def test_resolve_text_segment_ignores_verse_from_other_text():
-    text_id = str(uuid4())
-    segment_id = str(uuid4())
-    mock_segment = MagicMock()
-    mock_segment.id = segment_id
-    mock_segment.text_id = str(uuid4())
-
-    fallback_segment = MagicMock()
-    fallback_segment.id = str(uuid4())
+async def test_resolve_localized_openpecha_segment_returns_none_when_no_match():
+    from pecha_api.bookmarks.bookmark_utils import _resolve_localized_openpecha_segment
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils.resolve_segment_by_ref",
+        "pecha_api.bookmarks.bookmark_utils.fetch_related_segments",
         new_callable=AsyncMock,
-        return_value=mock_segment,
-    ), patch(
-        "pecha_api.bookmarks.bookmark_utils.get_first_segment_table_of_content",
-        new_callable=AsyncMock,
-        return_value=(str(fallback_segment.id), None),
-    ), patch(
-        "pecha_api.bookmarks.bookmark_utils.get_segment_by_id",
-        new_callable=AsyncMock,
-        return_value=fallback_segment,
+        return_value={"items": []},
     ):
-        resolved_id, resolved_segment = await _resolve_text_segment(
-            text_id=text_id,
-            verse_id=segment_id,
+        result = await _resolve_localized_openpecha_segment(
+            segment_id=str(uuid4()),
+            target_text_id=str(uuid4()),
         )
 
-    assert resolved_id == str(fallback_segment.id)
-    assert resolved_segment is fallback_segment
+    assert result is None
 
 
 @pytest.mark.asyncio
-async def test_resolve_text_segment_falls_back_to_first_segment_by_text_id():
-    text_id = str(uuid4())
-    mock_segment = MagicMock()
-    mock_segment.id = str(uuid4())
+async def test_resolve_localized_openpecha_segment_returns_none_when_item_has_no_id():
+    from pecha_api.bookmarks.bookmark_utils import _resolve_localized_openpecha_segment
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils.get_first_segment_table_of_content",
+        "pecha_api.bookmarks.bookmark_utils.fetch_related_segments",
         new_callable=AsyncMock,
-        return_value=(None, None),
-    ), patch(
-        "pecha_api.bookmarks.bookmark_utils.Segment.get_first_segment_by_text_id",
-        new_callable=AsyncMock,
-        return_value=mock_segment,
+        return_value={"items": [{"text_id": str(uuid4())}]},
     ):
-        resolved_id, resolved_segment = await _resolve_text_segment(
-            text_id=text_id,
-            verse_id=None,
+        result = await _resolve_localized_openpecha_segment(
+            segment_id=str(uuid4()),
+            target_text_id=str(uuid4()),
         )
 
-    assert resolved_id == str(mock_segment.id)
-    assert resolved_segment is mock_segment
+    assert result is None
 
 
 @pytest.mark.asyncio
-async def test_resolve_text_segment_returns_none_when_not_found():
-    text_id = str(uuid4())
+async def test_resolve_localized_openpecha_segment_returns_none_when_content_fetch_fails():
+    from pecha_api.bookmarks.bookmark_utils import _resolve_localized_openpecha_segment
+
+    mapped_id = str(uuid4())
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils.get_first_segment_table_of_content",
+        "pecha_api.bookmarks.bookmark_utils.fetch_related_segments",
         new_callable=AsyncMock,
-        return_value=(None, None),
+        return_value={"items": [{"id": mapped_id}]},
     ), patch(
-        "pecha_api.bookmarks.bookmark_utils.Segment.get_first_segment_by_text_id",
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_content",
         new_callable=AsyncMock,
         return_value=None,
     ):
-        resolved_id, resolved_segment = await _resolve_text_segment(
-            text_id=text_id,
-            verse_id=None,
+        result = await _resolve_localized_openpecha_segment(
+            segment_id=str(uuid4()),
+            target_text_id=str(uuid4()),
         )
 
-    assert resolved_id is None
-    assert resolved_segment is None
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_localized_openpecha_segment_returns_none_on_upstream_error():
+    from pecha_api.bookmarks.bookmark_utils import _resolve_localized_openpecha_segment
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.fetch_related_segments",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("upstream unavailable"),
+    ):
+        result = await _resolve_localized_openpecha_segment(
+            segment_id=str(uuid4()),
+            target_text_id=str(uuid4()),
+        )
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_openpecha_segment_content_safe_returns_none_on_error():
+    from pecha_api.bookmarks.bookmark_utils import _fetch_openpecha_segment_content_safe
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_content",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("upstream unavailable"),
+    ):
+        result = await _fetch_openpecha_segment_content_safe("some-ref")
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_openpecha_segment_details_safe_returns_none_on_error():
+    from pecha_api.bookmarks.bookmark_utils import _fetch_openpecha_segment_details_safe
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_details",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("upstream unavailable"),
+    ):
+        result = await _fetch_openpecha_segment_details_safe("some-ref")
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_enrich_verse_bookmark_uses_localized_segment_when_language_differs():
+    """When a language is requested and it resolves to a different text than
+    the verse's own text, enrichment should swap in the segment mapped into
+    that target text (via _resolve_localized_openpecha_segment) rather than
+    keeping the original-language content."""
+    source_text_id = str(uuid4())
+    localized_text_id = str(uuid4())
+    verse_locator = "segment-ref-abc-123"
+    localized_segment_id = str(uuid4())
+
+    bookmark = MagicMock()
+    bookmark.type = BookmarkType.VERSE
+    bookmark.source_id = verse_locator
+    bookmark.name = None
+
+    localized_text = MagicMock()
+    localized_text.id = localized_text_id
+    localized_text.title = "Localized title"
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_content",
+        new_callable=AsyncMock,
+        return_value="Original content",
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_details",
+        new_callable=AsyncMock,
+        return_value={"text_id": source_text_id},
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils._resolve_localized_text",
+        new_callable=AsyncMock,
+        return_value=localized_text,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils._resolve_localized_openpecha_segment",
+        new_callable=AsyncMock,
+        return_value={
+            "id": localized_segment_id,
+            "text_id": localized_text_id,
+            "content": "Localized content",
+        },
+    ) as mock_resolve_localized:
+        result = await enrich_text_bookmark(bookmark, language="BO")
+
+    mock_resolve_localized.assert_awaited_once_with(
+        segment_id=verse_locator,
+        target_text_id=localized_text_id,
+    )
+    assert result["text"].id == localized_text_id
+    assert result["text"].title == "Localized title"
+    assert result["text"].segment.id == localized_segment_id
+    assert result["text"].segment.content == "Localized content"
 
 
 @pytest.mark.asyncio
@@ -207,6 +345,42 @@ async def test_enrich_text_bookmark_without_verse_uses_first_segment():
 @pytest.mark.asyncio
 async def test_enrich_text_bookmark_with_name_as_segment_ref():
     text_id = str(uuid4())
+    verse_locator = "segment-ref-abc-123"
+
+    bookmark = MagicMock()
+    bookmark.type = BookmarkType.TEXT
+    bookmark.source_id = text_id
+    bookmark.name = verse_locator
+
+    mock_text = MagicMock()
+    mock_text.title = "Heart Sutra"
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_details",
+        new_callable=AsyncMock,
+        return_value={"text_id": text_id},
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_content",
+        new_callable=AsyncMock,
+        return_value="Named segment content",
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.get_text_by_id_from_openpecha",
+        new_callable=AsyncMock,
+        return_value=mock_text,
+    ):
+        result = await enrich_text_bookmark(bookmark)
+
+    assert result["text"].segment.id == verse_locator
+    assert result["text"].segment.content == "Named segment content"
+
+
+@pytest.mark.asyncio
+async def test_enrich_text_bookmark_with_name_falls_back_to_first_segment_when_refetch_fails():
+    """The name was already confirmed to belong to text_id via
+    _fetch_openpecha_segment_details_safe; a transient failure re-fetching
+    its content/details shouldn't blank out the whole bookmark when a
+    first-segment preview is still available."""
+    text_id = str(uuid4())
     segment_id = str(uuid4())
     verse_locator = "segment-ref-abc-123"
 
@@ -218,23 +392,29 @@ async def test_enrich_text_bookmark_with_name_as_segment_ref():
     mock_text = MagicMock()
     mock_text.title = "Heart Sutra"
 
-    mock_segment = MagicMock()
-    mock_segment.id = segment_id
-    mock_segment.text_id = text_id
-    mock_segment.content = "Named segment content"
-
     with patch(
-        "pecha_api.bookmarks.bookmark_utils.resolve_segment_by_ref",
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_details",
         new_callable=AsyncMock,
-        return_value=mock_segment,
+        return_value={"text_id": text_id},
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_content",
+        new_callable=AsyncMock,
+        return_value=None,
     ), patch(
         "pecha_api.bookmarks.bookmark_utils.get_text_by_id_from_openpecha",
         new_callable=AsyncMock,
         return_value=mock_text,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.build_first_segment_preview_for_text",
+        new_callable=AsyncMock,
+        return_value=(segment_id, "Fallback preview content"),
     ):
         result = await enrich_text_bookmark(bookmark)
 
-    assert result["text"].segment.content == "Named segment content"
+    assert result["text"].id == text_id
+    assert result["text"].title == "Heart Sutra"
+    assert result["text"].segment.id == segment_id
+    assert result["text"].segment.content == "Fallback preview content"
 
 
 @pytest.mark.asyncio
@@ -267,7 +447,6 @@ async def test_enrich_text_bookmark_returns_empty_when_segment_missing():
 @pytest.mark.asyncio
 async def test_enrich_verse_bookmark_includes_segment_content():
     text_id = str(uuid4())
-    segment_id = str(uuid4())
     verse_locator = "segment-ref-abc-123"
 
     bookmark = MagicMock()
@@ -278,15 +457,14 @@ async def test_enrich_verse_bookmark_includes_segment_content():
     mock_text = MagicMock()
     mock_text.title = "Lotus Sutra"
 
-    mock_segment = MagicMock()
-    mock_segment.id = segment_id
-    mock_segment.text_id = text_id
-    mock_segment.content = "Verse segment content"
-
     with patch(
-        "pecha_api.bookmarks.bookmark_utils.resolve_segment_by_ref",
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_content",
         new_callable=AsyncMock,
-        return_value=mock_segment,
+        return_value="Verse segment content",
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_details",
+        new_callable=AsyncMock,
+        return_value={"text_id": text_id},
     ), patch(
         "pecha_api.bookmarks.bookmark_utils.get_text_by_id_from_openpecha",
         new_callable=AsyncMock,
@@ -296,7 +474,7 @@ async def test_enrich_verse_bookmark_includes_segment_content():
 
     assert result["text"].id == text_id
     assert result["text"].title == "Lotus Sutra"
-    assert result["text"].segment.id == segment_id
+    assert result["text"].segment.id == verse_locator
     assert result["text"].segment.content == "Verse segment content"
 
 
@@ -308,7 +486,7 @@ async def test_enrich_verse_bookmark_returns_empty_when_segment_not_found():
     bookmark.name = None
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils.resolve_segment_by_ref",
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_content",
         new_callable=AsyncMock,
         return_value=None,
     ):
@@ -1167,37 +1345,6 @@ async def test_resolve_localized_text_returns_matching_group_text():
         result = await _resolve_localized_text(text_id=text_id, language="BO")
 
     assert result is localized_text
-
-
-@pytest.mark.asyncio
-async def test_resolve_localized_segment_returns_mapped_segment():
-    from pecha_api.bookmarks.bookmark_utils import _resolve_localized_segment
-
-    target_text_id = str(uuid4())
-    segment = MagicMock()
-    segment.text_id = str(uuid4())
-    segment.id = uuid4()
-
-    mapped = MagicMock()
-    mapped.text_id = target_text_id
-    mapped.id = uuid4()
-    localized = MagicMock()
-
-    with patch(
-        "pecha_api.bookmarks.bookmark_utils.get_related_mapped_segments",
-        new_callable=AsyncMock,
-        return_value=[mapped],
-    ), patch(
-        "pecha_api.bookmarks.bookmark_utils.get_segment_by_id",
-        new_callable=AsyncMock,
-        return_value=localized,
-    ):
-        result = await _resolve_localized_segment(
-            segment=segment,
-            target_text_id=target_text_id,
-        )
-
-    assert result is localized
 
 
 @pytest.mark.asyncio
