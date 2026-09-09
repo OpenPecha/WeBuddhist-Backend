@@ -368,6 +368,7 @@ async def test_create_routine_success():
         id=time_block_id,
         time="12:00",
         time_int=1200,
+        title=None,
         notification_enabled=True,
     )
     saved_session = SimpleNamespace(
@@ -513,6 +514,7 @@ async def test_create_routine_without_timezone_defaults_to_utc():
         id=time_block_id,
         time="12:00",
         time_int=1200,
+        title=None,
         notification_enabled=True,
         time_utc=time(12, 0, tzinfo=timezone.utc),
     )
@@ -602,6 +604,7 @@ async def test_create_routine_with_timer_session():
         id=time_block_id,
         time="12:00",
         time_int=1200,
+        title=None,
         notification_enabled=True,
     )
     saved_session = SimpleNamespace(
@@ -1061,6 +1064,7 @@ async def test_add_time_block_success():
         id=time_block_id,
         time="08:00",
         time_int=800,
+        title=None,
         notification_enabled=True,
     )
     saved_session = SimpleNamespace(
@@ -1254,6 +1258,7 @@ async def test_add_time_block_allows_same_plan_in_different_time_block():
         id=time_block_id,
         time="08:00",
         time_int=800,
+        title=None,
         notification_enabled=True,
     )
     saved_session = SimpleNamespace(
@@ -1333,6 +1338,7 @@ async def test_add_time_block_allows_same_series_in_different_time_block():
         id=time_block_id,
         time="08:00",
         time_int=800,
+        title=None,
         notification_enabled=True,
     )
     saved_session = SimpleNamespace(
@@ -1961,12 +1967,14 @@ async def test_update_time_block_service_success():
         routine_id=routine_id,
         time="12:00",
         time_int=1200,
+        title=None,
         notification_enabled=True,
     )
     updated_time_block = SimpleNamespace(
         id=time_block_id,
         time="14:00",
         time_int=1400,
+        title=None,
         notification_enabled=True,
     )
     saved_session = SimpleNamespace(
@@ -2201,6 +2209,7 @@ async def test_update_time_block_service_allows_same_plan_in_different_time_bloc
         id=time_block_id,
         time="14:00",
         time_int=1400,
+        title=None,
         notification_enabled=True,
     )
     mock_time_block = SimpleNamespace(
@@ -2208,6 +2217,7 @@ async def test_update_time_block_service_allows_same_plan_in_different_time_bloc
         routine_id=routine_id,
         time="12:00",
         time_int=1200,
+        title=None,
         notification_enabled=True,
     )
     saved_session = SimpleNamespace(
@@ -2339,6 +2349,7 @@ async def test_get_user_routine_success():
         routine_id=routine_id,
         time="08:00",
         time_int=800,
+        title=None,
         notification_enabled=True,
     )
     mock_session = SimpleNamespace(
@@ -2456,6 +2467,7 @@ async def test_get_user_routine_with_pagination():
         routine_id=routine_id,
         time="12:00",
         time_int=1200,
+        title=None,
         notification_enabled=False,
     )
 
@@ -2503,6 +2515,7 @@ async def test_get_user_routine_with_multiple_time_blocks():
             routine_id=routine_id,
             time="06:00",
             time_int=600,
+            title=None,
             notification_enabled=True,
         ),
         SimpleNamespace(
@@ -2510,6 +2523,7 @@ async def test_get_user_routine_with_multiple_time_blocks():
             routine_id=routine_id,
             time="20:00",
             time_int=2000,
+            title=None,
             notification_enabled=True,
         ),
     ]
@@ -2652,6 +2666,7 @@ async def test_build_time_block_dto():
         id=time_block_id,
         time="08:00",
         time_int=800,
+        title=None,
         notification_enabled=True,
     )
     session = SimpleNamespace(
@@ -2686,6 +2701,140 @@ async def test_build_time_block_dto():
         assert result.notification_enabled is True
         assert len(result.sessions) == 1
         assert result.sessions[0].title == "Test Plan"
+
+
+@pytest.mark.asyncio
+async def test_build_time_block_dto_returns_title():
+    """The time block's own title is surfaced on the DTO."""
+    time_block_id = uuid.uuid4()
+
+    time_block = SimpleNamespace(
+        id=time_block_id,
+        time="08:00",
+        time_int=800,
+        title="Vesak Day Practice",
+        notification_enabled=True,
+    )
+
+    result = await build_time_block_dto(
+        db=MagicMock(), time_block=time_block, sessions=[], user_id=uuid.uuid4()
+    )
+
+    assert result.title == "Vesak Day Practice"
+    assert result.sessions == []
+
+
+@pytest.mark.asyncio
+async def test_update_time_block_service_persists_title():
+    """The requested title is passed through to the repository update."""
+    user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+
+    request = UpdateTimeBlockRequest(
+        time="14:00",
+        time_int=1400,
+        title="  Morning Practice  ",
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.TIMER, duration_ms=120000, display_order=0
+            )
+        ],
+    )
+
+    _db_mock, session_cm = _mock_session_with_db()
+
+    mock_routine = SimpleNamespace(id=routine_id, user_id=user_id, timezone="UTC")
+    mock_time_block = SimpleNamespace(
+        id=time_block_id,
+        routine_id=routine_id,
+        time="12:00",
+        time_int=1200,
+        title=None,
+        notification_enabled=True,
+    )
+    updated_time_block = SimpleNamespace(
+        id=time_block_id,
+        time="14:00",
+        time_int=1400,
+        title="Morning Practice",
+        notification_enabled=True,
+    )
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
+        return_value=mock_routine,
+    ), patch(
+        "pecha_api.routines.routines_service.get_time_block_by_id_and_routine",
+        return_value=mock_time_block,
+    ), patch(
+        "pecha_api.routines.routines_service.get_time_block_by_routine_and_time",
+        return_value=None,
+    ), patch(
+        "pecha_api.routines.routines_service.delete_sessions_by_time_block_id",
+    ), patch(
+        "pecha_api.routines.routines_service.update_time_block_repo",
+        return_value=updated_time_block,
+    ) as update_repo_mock, patch(
+        "pecha_api.routines.routines_service.build_session_models",
+        return_value=[MagicMock()],
+    ), patch(
+        "pecha_api.routines.routines_service.save_sessions",
+        return_value=[],
+    ):
+        result = await update_time_block_service(
+            token="token123",
+            routine_id=routine_id,
+            time_block_id=time_block_id,
+            request=request,
+        )
+
+    assert update_repo_mock.call_args.kwargs["title"] == "Morning Practice"
+    assert result.title == "Morning Practice"
+
+
+def test_time_block_request_title_defaults_to_none():
+    request = CreateTimeBlockRequest(
+        time="08:00",
+        time_int=800,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.TIMER, duration_ms=120000, display_order=0
+            )
+        ],
+    )
+    assert request.title is None
+
+
+@pytest.mark.parametrize(
+    "raw_title,expected",
+    [
+        ("  Vesak Day Practice  ", "Vesak Day Practice"),
+        ("   ", None),
+        ("", None),
+    ],
+)
+def test_time_block_request_title_is_normalised(raw_title, expected):
+    sessions = [
+        SessionRequest(
+            session_type=SessionType.TIMER, duration_ms=120000, display_order=0
+        )
+    ]
+    create_request = CreateTimeBlockRequest(
+        time="08:00", time_int=800, title=raw_title, sessions=sessions
+    )
+    update_request = UpdateTimeBlockRequest(
+        time="08:00", time_int=800, title=raw_title, sessions=sessions
+    )
+
+    assert create_request.title == expected
+    assert update_request.title == expected
 
 
 @pytest.mark.asyncio

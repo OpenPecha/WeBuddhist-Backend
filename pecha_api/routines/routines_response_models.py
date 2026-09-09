@@ -7,6 +7,13 @@ from pecha_api.plans.media.media_response_models import ImageUrlModel
 from .routines_enums import SessionType
 
 
+def _normalize_optional_title(value: Any) -> Any:
+    if isinstance(value, str):
+        stripped = value.strip()
+        return stripped or None
+    return value
+
+
 class SessionRequest(BaseModel):
     session_type: SessionType
     # str, not UUID: RECITATION sessions can hold a non-UUID pecha-style text id.
@@ -47,15 +54,35 @@ class SessionRequest(BaseModel):
 class CreateTimeBlockRequest(BaseModel):
     time: str
     time_int: int
+    title: Optional[str] = Field(
+        None, max_length=255, description="Optional practice name for this time block"
+    )
     notification_enabled: bool = True
     sessions: List[SessionRequest]
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def _normalize_title(cls, value: Any) -> Any:
+        return _normalize_optional_title(value)
 
 
 class UpdateTimeBlockRequest(BaseModel):
     time: str
     time_int: int
+    # Intended: PUT replaces the whole time block, so an omitted title clears the
+    # stored one — the same semantics as notification_enabled below, and the only
+    # way to remove a title. Callers already send time/time_int/sessions on every
+    # update, so the client always has the full block (title included) in hand.
+    title: Optional[str] = Field(
+        None, max_length=255, description="Optional practice name for this time block"
+    )
     notification_enabled: bool = True
     sessions: List[SessionRequest]
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def _normalize_title(cls, value: Any) -> Any:
+        return _normalize_optional_title(value)
 
 
 class RoutineFirstSegmentDTO(BaseModel):
@@ -163,6 +190,7 @@ class TimeBlockDTO(BaseModel):
     id: UUID
     time: str
     time_int: int
+    title: Optional[str] = None
     notification_enabled: bool
     sessions: List[SessionDTO]
 
