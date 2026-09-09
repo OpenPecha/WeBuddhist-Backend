@@ -169,6 +169,7 @@ def _time_block_dto(
         id=time_block.id,
         time=display_time,
         time_int=display_time_int,
+        title=time_block.title,
         notification_enabled=time_block.notification_enabled,
         sessions=sessions,
     )
@@ -1190,6 +1191,7 @@ async def build_time_block_dto(
         id=time_block.id,
         time=display_time,
         time_int=display_time_int,
+        title=time_block.title,
         notification_enabled=time_block.notification_enabled,
         sessions=resolved_sessions,
     )
@@ -1234,6 +1236,7 @@ async def create_routine_with_time_block(
             time=local_time,
             time_utc=time_utc,
             time_int=time_int,
+            title=request.title,
             notification_enabled=request.notification_enabled,
         )
         saved_time_block = save_time_block(db=db, time_block=time_block)
@@ -1387,6 +1390,7 @@ async def add_time_block_to_routine(
             time=local_time,
             time_utc=time_utc,
             time_int=time_int,
+            title=request.title,
             notification_enabled=request.notification_enabled,
         )
         saved_time_block = save_time_block(db=db, time_block=time_block)
@@ -1504,6 +1508,7 @@ async def update_time_block_service(
             time=local_time,
             time_utc=time_utc,
             time_int=time_int,
+            title=request.title,
             notification_enabled=request.notification_enabled,
         )
 
