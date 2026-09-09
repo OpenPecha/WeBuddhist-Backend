@@ -253,6 +253,7 @@ class TestGetTextsByCollectionId:
 
         mock_fetch_texts.assert_awaited_once_with(
             category_id="cat-1",
+            language=None,
             title=None,
             offset=5,
             limit=3,
@@ -277,6 +278,7 @@ class TestGetTextsByCollectionId:
         assert has_more is False
         mock_fetch_texts.assert_awaited_once_with(
             category_id="cat-1",
+            language=None,
             title="heart",
             offset=0,
             limit=10,
@@ -361,10 +363,39 @@ class TestGetTextsByCollectionFromOpenpecha:
 
         mock_fetch_texts.assert_awaited_once_with(
             category_id="cat-1",
+            language=None,
             title=None,
             offset=0,
             limit=10,
         )
+
+    @pytest.mark.asyncio
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_category_by_id", new_callable=AsyncMock)
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
+    async def test_get_texts_with_language_filter(self, mock_fetch_texts, mock_fetch_category):
+        mock_fetch_texts.return_value = {
+            "items": [{"id": "t-bo", "title": {"bo": "BO Text"}, "language": "bo"}],
+            "has_more": False,
+        }
+        mock_fetch_category.return_value = {"title": {"bo": "Collection"}}
+
+        result = await get_texts_by_collection_from_openpecha(
+            collection_id="cat-1",
+            language="bo",
+            skip=0,
+            limit=10,
+        )
+
+        assert len(result.texts) == 1
+        assert result.texts[0].language == "bo"
+        mock_fetch_texts.assert_awaited_once_with(
+            category_id="cat-1",
+            language="bo",
+            title=None,
+            offset=0,
+            limit=10,
+        )
+        mock_fetch_category.assert_awaited_once_with("cat-1", language="bo")
 
     @pytest.mark.asyncio
     @patch("pecha_api.texts.texts_openpecha_service.fetch_category_by_id", new_callable=AsyncMock)
@@ -386,6 +417,7 @@ class TestGetTextsByCollectionFromOpenpecha:
         assert len(result.texts) == 1
         mock_fetch_texts.assert_awaited_once_with(
             category_id="cat-1",
+            language=None,
             title="heart",
             offset=0,
             limit=10,
@@ -417,6 +449,7 @@ class TestGetTextsByCollectionFromOpenpecha:
 
         mock_fetch_texts.assert_awaited_once_with(
             category_id="cat-1",
+            language=None,
             title=None,
             offset=1,
             limit=1,
@@ -460,6 +493,7 @@ class TestGetTextsByCollectionFromOpenpecha:
         assert len(result.texts) == 1
         mock_fetch_texts.assert_awaited_once_with(
             category_id=None,
+            language=None,
             title=None,
             offset=0,
             limit=10,
@@ -497,6 +531,7 @@ class TestGetTitlesAndIdsByQuery:
         ]
         mock_fetch_texts.assert_awaited_once_with(
             category_id=None,
+            language=None,
             title="heart",
             offset=0,
             limit=20,
@@ -550,6 +585,7 @@ class TestGetTitlesAndIdsByQuery:
 
         mock_fetch_texts.assert_awaited_once_with(
             category_id=None,
+            language=None,
             title="sutra",
             offset=10,
             limit=5,
@@ -570,6 +606,7 @@ class TestGetTitlesAndIdsByQuery:
         assert result == [TitleSearchResult(id="edition-1", title="Text 1")]
         mock_fetch_texts.assert_awaited_once_with(
             category_id=None,
+            language=None,
             title=None,
             offset=0,
             limit=20,
@@ -584,6 +621,7 @@ class TestGetTitlesAndIdsByQuery:
 
         mock_fetch_texts.assert_awaited_once_with(
             category_id=None,
+            language=None,
             title=None,
             offset=0,
             limit=20,
