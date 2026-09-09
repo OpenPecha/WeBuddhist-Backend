@@ -194,6 +194,22 @@ class TestRoomLists:
         assert "author_groups" in rendered
         assert "group_id IS NULL" in rendered
 
+    def test_list_my_active_rooms_excludes_rooms_for_groups_no_longer_joined_or_followed(self):
+        """Chat access tracks live join/follow status, not just the
+        ChatRoomMember row - this covers ChatRoomMember rows left over from
+        before a leave/unfollow started closing them out too."""
+        db = MagicMock()
+        query = _query_chain(db, total=0, results=[])
+
+        list_my_active_rooms(db=db, user_id=uuid4(), skip=0, limit=20)
+
+        rendered = " ".join(
+            str(clause.compile(compile_kwargs={"literal_binds": True}))
+            for clause in query.filter.call_args.args
+        )
+        assert "author_group_joins" in rendered
+        assert "author_group_followers" in rendered
+
 
 class TestMessages:
 

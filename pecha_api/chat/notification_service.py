@@ -5,12 +5,14 @@ from starlette import status
 
 from pecha_api.chat.notification_repository import (
     deactivate_push_device_token_by_id,
+    filter_users_by_notification_preference,
     get_active_push_devices_by_user_ids,
     get_sender_display_name,
     list_group_chat_recipient_user_ids,
     list_private_chat_recipient_user_ids,
     normalize_platform,
 )
+from pecha_api.notification.notification_preference_enums import NotificationType
 from pecha_api.chat.notification_response_models import (
     ChatNotificationRecipientDTO,
     ChatNotificationTargetsResponse,
@@ -79,6 +81,12 @@ def get_chat_notification_targets(
                 room=room,
                 sender_id=message.sender_id,
             )
+            # Private chat has no group scope, so only GLOBAL rows can apply.
+            all_recipient_ids = filter_users_by_notification_preference(
+                db=db,
+                user_ids=all_recipient_ids,
+                notification_type=NotificationType.CHAT_MESSAGE,
+            )
             total = len(all_recipient_ids)
             recipient_ids = all_recipient_ids[skip : skip + limit]
         else:
@@ -88,6 +96,7 @@ def get_chat_notification_targets(
                 sender_id=message.sender_id,
                 skip=skip,
                 limit=limit,
+                notification_type=NotificationType.CHAT_MESSAGE,
             )
 
         devices_by_user = get_active_push_devices_by_user_ids(db=db, user_ids=recipient_ids)

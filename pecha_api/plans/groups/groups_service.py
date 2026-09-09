@@ -58,6 +58,7 @@ from pecha_api.group_accumulator.group_accumulator_repository import (
     get_joined_group_accumulator_ids_by_user,
     remove_group_accumulator_joins_for_group,
 )
+from pecha_api.chat.service import leave_group_chat_room
 from pecha_api.plans.groups.follow_scope import resolve_public_group_scope
 from pecha_api.plans.groups.groups_repository import (
     add_group_member,
@@ -1519,6 +1520,10 @@ def unfollow_group(token: str, group_id: UUID) -> None:
     user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
         remove_group_follow(db=db, group_id=group_id, user_id=user.id)
+        # Mirrors leave_group: only drop chat room membership if the user
+        # isn't still eligible via an active join.
+        if not is_user_joined_group(db=db, group_id=group_id, user_id=user.id):
+            leave_group_chat_room(db=db, group_id=group_id, user_id=user.id)
 
 
 def get_followed_group(
@@ -1598,6 +1603,11 @@ def leave_group(token: str, group_id: UUID) -> None:
             group_id=group_id,
         )
         leave_group_membership(db=db, user_id=user.id, group_id=group_id)
+        # Chat access is granted to joiners AND followers (see
+        # _is_eligible_for_group_chat), so only drop the chat room membership
+        # if leaving the group didn't leave the user still eligible via follow.
+        if not is_user_following_group(db=db, group_id=group_id, user_id=user.id):
+            leave_group_chat_room(db=db, group_id=group_id, user_id=user.id)
 
 
 def get_joined_group(
