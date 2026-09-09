@@ -14,7 +14,8 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.authors.plan_authors_model import Author, AuthorSocialMediaAccount
 from pecha_api.plans.authors.plan_authors_repository import get_author_by_id, get_all_authors, \
-    update_author, find_author_by_id
+    update_author, find_author_by_id, find_author_by_user_id
+from pecha_api.users.user_resolution import resolve_user_from_payload
 import jose
 
 from pecha_api.plans.authors.plan_authors_response_models import AuthorInfoResponse, SocialMediaProfile, \
@@ -209,12 +210,26 @@ def validate_and_extract_author_details(token: str) -> Author:
             except (TypeError, ValueError):
                 author_id = None
 
-            if author_id is None:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail=ErrorConstants.TOKEN_ERROR_MESSAGE,
-                )
-            author = find_author_by_id(db=db_session, author_id=author_id)
+            author = find_author_by_id(db=db_session, author_id=author_id) if author_id is not None else None
+            if author is None:
+                # Not a CMS Author token. Resolve the caller as a website
+                # User instead - the same identity resolution the group
+                # permission check uses (UUID sub, then phone, then email;
+                # see groups_service._resolve_permission_caller) - then look
+                # up the Author only via the persisted Author.user_id link,
+                # never through the token's own email/phone claims directly
+                # (see auth_service.create_user's Author collision check for
+                # why). This also covers raw, non-exchanged Auth0 tokens
+                # whose subject isn't a UUID at all.
+                try:
+                    user = resolve_user_from_payload(
+                        db=db_session,
+                        payload=payload,
+                        unauthorized_detail=ErrorConstants.TOKEN_ERROR_MESSAGE,
+                    )
+                    author = find_author_by_user_id(db=db_session, user_id=user.id)
+                except HTTPException:
+                    author = None
             if author is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,

@@ -377,6 +377,7 @@ class GroupPracticesFeedResponse(BaseModel):
 class GroupPermissionDTO(BaseModel):
     group_id: UUID
     has_permission: bool
+    can_create_content: bool
     role: Optional[AuthorGroupMemberRole] = None
     is_super_admin: bool
     author_id: Optional[UUID] = None

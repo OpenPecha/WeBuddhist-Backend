@@ -3962,6 +3962,9 @@ def test_get_group_permission_app_user_no_author():
         "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
         return_value=user,
     ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_user_id",
+        return_value=None,
+    ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
     ):
@@ -4105,6 +4108,7 @@ def test_get_group_permission_group_member():
 
     assert result.group_id == group.id
     assert result.has_permission is True
+    assert result.can_create_content is True
     assert result.role == AuthorGroupMemberRole.ADMIN
     assert result.is_super_admin is False
     assert result.author_id == author.id
@@ -4161,13 +4165,14 @@ def test_get_group_permission_author_role_no_management():
 
     assert result.group_id == group.id
     assert result.has_permission is False
+    assert result.can_create_content is True
     assert result.role == AuthorGroupMemberRole.AUTHOR
     assert result.is_super_admin is False
     assert result.author_id == author.id
 
 
 def test_get_group_permission_viewer_role_no_management():
-    """VIEWER role can only read → has_permission: false"""
+    """VIEWER role can only read → has_permission: false, can_create_content: false"""
     author = _make_author(email="viewer@example.org")
     group = _make_group()
 
@@ -4189,6 +4194,7 @@ def test_get_group_permission_viewer_role_no_management():
 
     assert result.group_id == group.id
     assert result.has_permission is False
+    assert result.can_create_content is False
     assert result.role == AuthorGroupMemberRole.VIEWER
     assert result.is_super_admin is False
     assert result.author_id == author.id
@@ -4346,6 +4352,9 @@ def test_get_group_permission_user_uuid_matches_unrelated_author():
         "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
         return_value=user,
     ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_user_id",
+        return_value=None,  # this user has no persisted Author link
+    ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
     ):
@@ -4444,6 +4453,9 @@ def test_get_group_permission_author_uuid_collides_with_user_is_not_author():
         "pecha_api.plans.groups.groups_service.get_user_by_id",
         return_value=colliding_user,
     ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_user_id",
+        return_value=None,
+    ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
     ):
@@ -4480,6 +4492,9 @@ def test_get_group_permission_phone_only_user_uuid_collides_with_author():
         "pecha_api.plans.groups.groups_service.get_user_by_id",
         return_value=phone_user,  # live Users row exists at this exact id
     ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_user_id",
+        return_value=None,
+    ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
     ):
@@ -4509,6 +4524,9 @@ def test_get_group_permission_phone_only_author_uuid_collides_with_user_is_not_a
     ), patch(
         "pecha_api.plans.groups.groups_service.get_user_by_id",
         return_value=colliding_user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_user_id",
+        return_value=None,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
@@ -4576,6 +4594,9 @@ def test_get_group_permission_website_user_does_not_resolve_author_by_email():
         "pecha_api.plans.groups.groups_service.get_user_by_id",
         return_value=user,
     ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_user_id",
+        return_value=None,
+    ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
     ):
@@ -4603,6 +4624,9 @@ def test_get_group_permission_website_user_does_not_resolve_author_by_phone():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_user_by_id",
         return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_user_id",
+        return_value=None,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
@@ -4633,6 +4657,9 @@ def test_get_group_permission_no_contact_match_no_author():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_user_by_id",
         return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_user_id",
+        return_value=None,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,

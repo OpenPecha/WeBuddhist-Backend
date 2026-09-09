@@ -345,21 +345,17 @@ def test_create_user_with_email_success():
     with patch('pecha_api.auth.auth_service.save_user') as mock_save_user, \
             patch('pecha_api.auth.auth_service.get_hashed_password') as mock_get_hashed_password, \
             patch('pecha_api.auth.auth_service.generate_and_validate_username') as mock_generate_and_validate_username, \
-            patch('pecha_api.auth.auth_service.get_user_by_email_or_none') as mock_get_user_by_email_or_none, \
-            patch('pecha_api.auth.auth_service.find_author_by_email') as mock_find_author_by_email, \
-            patch('pecha_api.auth.auth_service.get_author_by_phone') as mock_get_author_by_phone:
+            patch('pecha_api.auth.auth_service.link_or_create_author_for_user') as mock_link_or_create_author:
         mock_user = MagicMock()
         mock_save_user.return_value = mock_user
         mock_get_hashed_password.return_value = "hashed_password123"
         mock_generate_and_validate_username.return_value = 'john_doe.0003'
-        mock_get_user_by_email_or_none.return_value = None
-        mock_find_author_by_email.return_value = None
-        mock_get_author_by_phone.return_value = None
 
         response = create_user(create_user_request, registration_source)
 
         mock_get_hashed_password.assert_called_once_with("password123")
         mock_save_user.assert_called_once()
+        mock_link_or_create_author.assert_called_once_with(db=ANY, user=mock_user)
         assert response == mock_user
 
 
@@ -374,19 +370,15 @@ def test_create_user_with_google_success():
 
     with patch('pecha_api.auth.auth_service.save_user') as mock_save_user, \
             patch('pecha_api.auth.auth_service.generate_and_validate_username') as mock_generate_and_validate_username, \
-            patch('pecha_api.auth.auth_service.get_user_by_email_or_none') as mock_get_user_by_email_or_none, \
-            patch('pecha_api.auth.auth_service.find_author_by_email') as mock_find_author_by_email, \
-            patch('pecha_api.auth.auth_service.get_author_by_phone') as mock_get_author_by_phone:
+            patch('pecha_api.auth.auth_service.link_or_create_author_for_user') as mock_link_or_create_author:
         mock_user = MagicMock()
         mock_save_user.return_value = mock_user
         mock_generate_and_validate_username.return_value = 'john_doe.0003'
-        mock_get_user_by_email_or_none.return_value = None
-        mock_find_author_by_email.return_value = None
-        mock_get_author_by_phone.return_value = None
 
         response = create_user(create_user_request, registration_source)
 
         mock_save_user.assert_called_once()
+        mock_link_or_create_author.assert_called_once_with(db=ANY, user=mock_user)
         assert response == mock_user
 
 
@@ -401,25 +393,23 @@ def test_create_user_with_facebook_success():
 
     with patch('pecha_api.auth.auth_service.save_user') as mock_save_user, \
             patch('pecha_api.auth.auth_service.generate_and_validate_username') as mock_generate_and_validate_username, \
-            patch('pecha_api.auth.auth_service.get_user_by_email_or_none') as mock_get_user_by_email_or_none, \
-            patch('pecha_api.auth.auth_service.find_author_by_email') as mock_find_author_by_email, \
-            patch('pecha_api.auth.auth_service.get_author_by_phone') as mock_get_author_by_phone:
+            patch('pecha_api.auth.auth_service.link_or_create_author_for_user') as mock_link_or_create_author:
         mock_user = MagicMock()
         mock_save_user.return_value = mock_user
         mock_generate_and_validate_username.return_value = 'john_doe.0003'
-        mock_get_user_by_email_or_none.return_value = None
-        mock_find_author_by_email.return_value = None
-        mock_get_author_by_phone.return_value = None
 
         response = create_user(create_user_request, registration_source)
 
         mock_save_user.assert_called_once()
+        mock_link_or_create_author.assert_called_once_with(db=ANY, user=mock_user)
         assert response == mock_user
 
 
-def test_create_user_rejects_email_matching_existing_author():
-    """Self-registration must not claim an existing Author's email so
-    invitation lookup and future account-linking stay unambiguous."""
+def test_create_user_links_existing_author_with_matching_email():
+    """A new website User whose email matches an existing Author gets
+    linked to that Author (Author.user_id) so both surfaces recognize the
+    same person - handled by link_or_create_author_for_user, not by
+    blocking the registration."""
     create_user_request = CreateUserRequest(
         firstname="John",
         lastname="Doe",
@@ -431,49 +421,17 @@ def test_create_user_rejects_email_matching_existing_author():
     with patch('pecha_api.auth.auth_service.save_user') as mock_save_user, \
             patch('pecha_api.auth.auth_service.get_hashed_password') as mock_get_hashed_password, \
             patch('pecha_api.auth.auth_service.generate_and_validate_username') as mock_generate_and_validate_username, \
-            patch('pecha_api.auth.auth_service.get_user_by_email_or_none') as mock_get_user_by_email_or_none, \
-            patch('pecha_api.auth.auth_service.find_author_by_email') as mock_find_author_by_email, \
-            patch('pecha_api.auth.auth_service.get_author_by_phone') as mock_get_author_by_phone:
+            patch('pecha_api.auth.auth_service.link_or_create_author_for_user') as mock_link_or_create_author:
+        mock_user = MagicMock()
+        mock_save_user.return_value = mock_user
         mock_get_hashed_password.return_value = "hashed_password123"
         mock_generate_and_validate_username.return_value = 'john_doe.0003'
-        mock_get_user_by_email_or_none.return_value = None
-        mock_find_author_by_email.return_value = MagicMock()
-        mock_get_author_by_phone.return_value = None
 
-        with pytest.raises(HTTPException) as exc_info:
-            create_user(create_user_request, registration_source)
+        response = create_user(create_user_request, registration_source)
 
-        assert exc_info.value.status_code == status.HTTP_409_CONFLICT
-        mock_save_user.assert_not_called()
-
-
-def test_create_user_rejects_phone_matching_existing_author():
-    """Self-registration must not claim an existing Author's phone."""
-    create_user_request = CreateUserRequest(
-        firstname="John",
-        lastname="Doe",
-        phone_number="+15551234567",
-        password="password123"
-    )
-    registration_source = RegistrationSource.PHONE
-
-    with patch('pecha_api.auth.auth_service.save_user') as mock_save_user, \
-            patch('pecha_api.auth.auth_service.generate_and_validate_username') as mock_generate_and_validate_username, \
-            patch('pecha_api.auth.auth_service.get_user_by_phone') as mock_get_user_by_phone, \
-            patch('pecha_api.auth.auth_service.get_user_by_email_or_none') as mock_get_user_by_email_or_none, \
-            patch('pecha_api.auth.auth_service.find_author_by_email') as mock_find_author_by_email, \
-            patch('pecha_api.auth.auth_service.get_author_by_phone') as mock_get_author_by_phone:
-        mock_generate_and_validate_username.return_value = 'john_doe.0003'
-        mock_get_user_by_phone.return_value = None
-        mock_get_user_by_email_or_none.return_value = None
-        mock_find_author_by_email.return_value = None
-        mock_get_author_by_phone.return_value = MagicMock()
-
-        with pytest.raises(HTTPException) as exc_info:
-            create_user(create_user_request, registration_source)
-
-        assert exc_info.value.status_code == status.HTTP_409_CONFLICT
-        mock_save_user.assert_not_called()
+        mock_save_user.assert_called_once()
+        mock_link_or_create_author.assert_called_once_with(db=ANY, user=mock_user)
+        assert response == mock_user
 
 
 def test_create_user_with_empty_password():
