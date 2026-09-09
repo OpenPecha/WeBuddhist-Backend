@@ -6,7 +6,7 @@ from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from pecha_api.plans.groups.groups_enums import AuthorGroupStatus
-from pecha_api.plans.groups.groups_models import AuthorGroup
+from pecha_api.plans.groups.groups_models import AuthorGroup, author_group_followers, author_group_joins
 
 from pecha_api.chat.enums import ChatMessageReportSource, ChatRoomMemberRole
 from pecha_api.chat.models import (
@@ -164,6 +164,33 @@ def list_my_active_rooms(
                     .where(
                         AuthorGroup.id == ChatRoom.group_id,
                         AuthorGroup.status == AuthorGroupStatus.PUBLISHED,
+                    )
+                    .correlate(ChatRoom)
+                ),
+            ),
+            # Chat access tracks live join/follow status, not just the
+            # ChatRoomMember row (which flows that end membership, like
+            # leave_group/unfollow_group, may not always have gotten around
+            # to closing out - see leave_group_chat_room). Checked here too
+            # so the list is correct even for rows left over from before that
+            # existed. DM rooms have no group_id and are unaffected.
+            or_(
+                ChatRoom.group_id.is_(None),
+                exists(
+                    select(1)
+                    .select_from(author_group_joins)
+                    .where(
+                        author_group_joins.c.group_id == ChatRoom.group_id,
+                        author_group_joins.c.user_id == user_id,
+                    )
+                    .correlate(ChatRoom)
+                ),
+                exists(
+                    select(1)
+                    .select_from(author_group_followers)
+                    .where(
+                        author_group_followers.c.group_id == ChatRoom.group_id,
+                        author_group_followers.c.user_id == user_id,
                     )
                     .correlate(ChatRoom)
                 ),

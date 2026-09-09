@@ -9,6 +9,7 @@ from fastapi import HTTPException
 import pecha_api.app  # noqa: F401
 
 from pecha_api.events.event_response_models import CreateEventRequest
+from pecha_api.notification.notification_preference_enums import NotificationType
 from pecha_api.events.event_service import create_event_service
 from pecha_api.events.notification_dispatch_service import (
     enqueue_event_notification,
@@ -187,6 +188,7 @@ class TestGetEventNotificationTargets:
             sender_id=author.id,
             skip=0,
             limit=100,
+            notification_type=NotificationType.EVENT,
         )
 
     @patch("pecha_api.events.notification_service.get_event_by_id", return_value=None)
