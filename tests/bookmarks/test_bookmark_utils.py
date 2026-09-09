@@ -237,6 +237,49 @@ async def test_enrich_text_bookmark_with_name_as_segment_ref():
 
 
 @pytest.mark.asyncio
+async def test_enrich_text_bookmark_with_name_falls_back_to_first_segment_when_refetch_fails():
+    """The name was already confirmed to belong to text_id via
+    _fetch_openpecha_segment_details_safe; a transient failure re-fetching
+    its content/details shouldn't blank out the whole bookmark when a
+    first-segment preview is still available."""
+    text_id = str(uuid4())
+    segment_id = str(uuid4())
+    verse_locator = "segment-ref-abc-123"
+
+    bookmark = MagicMock()
+    bookmark.type = BookmarkType.TEXT
+    bookmark.source_id = text_id
+    bookmark.name = verse_locator
+
+    mock_text = MagicMock()
+    mock_text.title = "Heart Sutra"
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_details",
+        new_callable=AsyncMock,
+        return_value={"text_id": text_id},
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.fetch_segment_content",
+        new_callable=AsyncMock,
+        return_value=None,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.get_text_by_id_from_openpecha",
+        new_callable=AsyncMock,
+        return_value=mock_text,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.build_first_segment_preview_for_text",
+        new_callable=AsyncMock,
+        return_value=(segment_id, "Fallback preview content"),
+    ):
+        result = await enrich_text_bookmark(bookmark)
+
+    assert result["text"].id == text_id
+    assert result["text"].title == "Heart Sutra"
+    assert result["text"].segment.id == segment_id
+    assert result["text"].segment.content == "Fallback preview content"
+
+
+@pytest.mark.asyncio
 async def test_enrich_text_bookmark_returns_empty_when_segment_missing():
     text_id = str(uuid4())
 

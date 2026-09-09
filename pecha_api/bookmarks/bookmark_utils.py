@@ -292,11 +292,16 @@ async def enrich_text_bookmark(
                 verse_id = bookmark.name
         if verse_id:
             resolved = await _fetch_openpecha_segment(verse_id)
-            if not resolved:
-                return {}
-            segment_id = resolved["id"]
-            segment_content = resolved["content"]
-            segment_source_text_id = resolved["text_id"]
+            if resolved:
+                segment_id = resolved["id"]
+                segment_content = resolved["content"]
+                segment_source_text_id = resolved["text_id"]
+            else:
+                # The name was already confirmed to belong to this text
+                # above; a transient failure re-fetching its content/details
+                # shouldn't blank out the whole bookmark when a first-segment
+                # preview of the same text is still available.
+                use_first_segment_preview = True
         else:
             resolved_edition_text_id = await _resolve_edition_text_id(text_id)
             if resolved_edition_text_id is not None:
