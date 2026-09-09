@@ -69,6 +69,10 @@ class CreateTimeBlockRequest(BaseModel):
 class UpdateTimeBlockRequest(BaseModel):
     time: str
     time_int: int
+    # Intended: PUT replaces the whole time block, so an omitted title clears the
+    # stored one — the same semantics as notification_enabled below, and the only
+    # way to remove a title. Callers already send time/time_int/sessions on every
+    # update, so the client always has the full block (title included) in hand.
     title: Optional[str] = Field(
         None, max_length=255, description="Optional practice name for this time block"
     )
