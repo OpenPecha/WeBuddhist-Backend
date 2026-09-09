@@ -64,14 +64,16 @@ class TestValidateAndExtractAuthorDetails:
         mock_find_author_by_id.assert_called_once_with(db=mock_db_session, author_id=author_id)
 
     @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
-    @patch('pecha_api.plans.authors.plan_authors_service.get_user_by_id')
+    @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_user_id')
+    @patch('pecha_api.plans.authors.plan_authors_service.resolve_user_from_payload')
     @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_id')
     @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
     def test_validate_and_extract_author_details_rejects_email_fallback(
         self,
         mock_validate_token: MagicMock,
         mock_find_author_by_id: MagicMock,
-        mock_get_user_by_id: MagicMock,
+        mock_resolve_user_from_payload: MagicMock,
+        mock_find_author_by_user_id: MagicMock,
         mock_session_local: MagicMock
     ) -> None:
         """A matching email does not bind a website User token to an Author
@@ -81,59 +83,8 @@ class TestValidateAndExtractAuthorDetails:
         mock_session_local.return_value.__enter__.return_value = MagicMock()
         mock_validate_token.return_value = {"sub": user_id, "email": "person@example.com"}
         mock_find_author_by_id.return_value = None
-        mock_get_user_by_id.side_effect = HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-
-        with pytest.raises(HTTPException) as exc_info:
-            validate_and_extract_author_details(token)
-
-        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
-        assert exc_info.value.detail == ErrorConstants.TOKEN_ERROR_MESSAGE
-
-    @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
-    @patch('pecha_api.plans.authors.plan_authors_service.get_user_by_id')
-    @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_id')
-    @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
-    def test_validate_and_extract_author_details_rejects_phone_fallback(
-        self,
-        mock_validate_token: MagicMock,
-        mock_find_author_by_id: MagicMock,
-        mock_get_user_by_id: MagicMock,
-        mock_session_local: MagicMock
-    ) -> None:
-        """A matching phone does not bind a website User token to an Author
-        unless the User has a persisted Author.user_id link."""
-        token = "website_token"
-        user_id = str(uuid4())
-        mock_session_local.return_value.__enter__.return_value = MagicMock()
-        mock_validate_token.return_value = {"sub": user_id, "phone_number": "+15551234567"}
-        mock_find_author_by_id.return_value = None
-        mock_get_user_by_id.side_effect = HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-
-        with pytest.raises(HTTPException) as exc_info:
-            validate_and_extract_author_details(token)
-
-        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
-        assert exc_info.value.detail == ErrorConstants.TOKEN_ERROR_MESSAGE
-
-    @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
-    @patch('pecha_api.plans.authors.plan_authors_service.get_user_by_id')
-    @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_id')
-    @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
-    def test_validate_and_extract_author_details_website_token_no_matching_author(
-        self,
-        mock_validate_token: MagicMock,
-        mock_find_author_by_id: MagicMock,
-        mock_get_user_by_id: MagicMock,
-        mock_session_local: MagicMock
-    ) -> None:
-        """A website token whose subject is not an Author id, and whose User
-        has no linked Author, is unauthorized."""
-        token = "website_token"
-        user_id = str(uuid4())
-        mock_session_local.return_value.__enter__.return_value = MagicMock()
-        mock_validate_token.return_value = {"sub": user_id, "email": "nobody@example.com"}
-        mock_find_author_by_id.return_value = None
-        mock_get_user_by_id.side_effect = HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        mock_resolve_user_from_payload.return_value = MagicMock()
+        mock_find_author_by_user_id.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:
             validate_and_extract_author_details(token)
@@ -143,14 +94,69 @@ class TestValidateAndExtractAuthorDetails:
 
     @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
     @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_user_id')
-    @patch('pecha_api.plans.authors.plan_authors_service.get_user_by_id')
+    @patch('pecha_api.plans.authors.plan_authors_service.resolve_user_from_payload')
+    @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_id')
+    @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
+    def test_validate_and_extract_author_details_rejects_phone_fallback(
+        self,
+        mock_validate_token: MagicMock,
+        mock_find_author_by_id: MagicMock,
+        mock_resolve_user_from_payload: MagicMock,
+        mock_find_author_by_user_id: MagicMock,
+        mock_session_local: MagicMock
+    ) -> None:
+        """A matching phone does not bind a website User token to an Author
+        unless the User has a persisted Author.user_id link."""
+        token = "website_token"
+        user_id = str(uuid4())
+        mock_session_local.return_value.__enter__.return_value = MagicMock()
+        mock_validate_token.return_value = {"sub": user_id, "phone_number": "+15551234567"}
+        mock_find_author_by_id.return_value = None
+        mock_resolve_user_from_payload.return_value = MagicMock()
+        mock_find_author_by_user_id.return_value = None
+
+        with pytest.raises(HTTPException) as exc_info:
+            validate_and_extract_author_details(token)
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+        assert exc_info.value.detail == ErrorConstants.TOKEN_ERROR_MESSAGE
+
+    @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
+    @patch('pecha_api.plans.authors.plan_authors_service.resolve_user_from_payload')
+    @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_id')
+    @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
+    def test_validate_and_extract_author_details_website_token_no_matching_author(
+        self,
+        mock_validate_token: MagicMock,
+        mock_find_author_by_id: MagicMock,
+        mock_resolve_user_from_payload: MagicMock,
+        mock_session_local: MagicMock
+    ) -> None:
+        """A website token whose subject is not an Author id, and whose User
+        has no linked Author, is unauthorized."""
+        token = "website_token"
+        user_id = str(uuid4())
+        mock_session_local.return_value.__enter__.return_value = MagicMock()
+        mock_validate_token.return_value = {"sub": user_id, "email": "nobody@example.com"}
+        mock_find_author_by_id.return_value = None
+        mock_resolve_user_from_payload.side_effect = HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+        with pytest.raises(HTTPException) as exc_info:
+            validate_and_extract_author_details(token)
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+        assert exc_info.value.detail == ErrorConstants.TOKEN_ERROR_MESSAGE
+
+    @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
+    @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_user_id')
+    @patch('pecha_api.plans.authors.plan_authors_service.resolve_user_from_payload')
     @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_id')
     @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
     def test_validate_and_extract_author_details_resolves_via_linked_user(
         self,
         mock_validate_token: MagicMock,
         mock_find_author_by_id: MagicMock,
-        mock_get_user_by_id: MagicMock,
+        mock_resolve_user_from_payload: MagicMock,
         mock_find_author_by_user_id: MagicMock,
         mock_session_local: MagicMock
     ) -> None:
@@ -162,14 +168,15 @@ class TestValidateAndExtractAuthorDetails:
         mock_session_local.return_value.__enter__.return_value = mock_db_session
         mock_validate_token.return_value = {"sub": str(user_id), "email": "person@example.com"}
         mock_find_author_by_id.return_value = None
-        mock_get_user_by_id.return_value = MagicMock()
+        mock_user = MagicMock()
+        mock_user.id = user_id
+        mock_resolve_user_from_payload.return_value = mock_user
         expected_author = MagicMock()
         mock_find_author_by_user_id.return_value = expected_author
 
         result = validate_and_extract_author_details(token)
 
         assert result == expected_author
-        mock_get_user_by_id.assert_called_once_with(db=mock_db_session, user_id=user_id)
         mock_find_author_by_user_id.assert_called_once_with(db=mock_db_session, user_id=user_id)
 
     @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
@@ -311,14 +318,14 @@ class TestValidateAndExtractAuthorDetails:
         assert str(exc_info.value) == "Database connection error"
 
     @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
-    @patch('pecha_api.plans.authors.plan_authors_service.get_user_by_id')
+    @patch('pecha_api.plans.authors.plan_authors_service.resolve_user_from_payload')
     @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_id')
     @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
     def test_validate_and_extract_author_details_author_not_found(
         self,
         mock_validate_token,
         mock_find_author_by_id,
-        mock_get_user_by_id,
+        mock_resolve_user_from_payload,
         mock_session_local
     ):
         """A UUID subject with no Author row and no User row is unauthorized."""
@@ -328,7 +335,7 @@ class TestValidateAndExtractAuthorDetails:
         mock_session_local.return_value.__enter__.return_value = mock_db_session
         mock_validate_token.return_value = {"sub": str(author_id)}
         mock_find_author_by_id.return_value = None
-        mock_get_user_by_id.side_effect = HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        mock_resolve_user_from_payload.side_effect = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
         with pytest.raises(HTTPException) as exc_info:
             validate_and_extract_author_details(token)
@@ -337,14 +344,16 @@ class TestValidateAndExtractAuthorDetails:
         assert exc_info.value.detail == ErrorConstants.TOKEN_ERROR_MESSAGE
 
     @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
-    @patch('pecha_api.plans.authors.plan_authors_service.get_user_by_id')
+    @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_user_id')
+    @patch('pecha_api.plans.authors.plan_authors_service.resolve_user_from_payload')
     @patch('pecha_api.plans.authors.plan_authors_service.find_author_by_id')
     @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
     def test_validate_and_extract_author_details_author_lookup_returns_none(
         self,
         mock_validate_token,
         mock_find_author_by_id,
-        mock_get_user_by_id,
+        mock_resolve_user_from_payload,
+        mock_find_author_by_user_id,
         mock_session_local
     ):
         """A well-formed token whose subject is not an Author, and whose User
@@ -353,7 +362,8 @@ class TestValidateAndExtractAuthorDetails:
         mock_session_local.return_value.__enter__.return_value = MagicMock()
         mock_validate_token.return_value = {"sub": str(uuid4()), "email": "nonexistent@example.com"}
         mock_find_author_by_id.return_value = None
-        mock_get_user_by_id.side_effect = HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        mock_resolve_user_from_payload.return_value = MagicMock()
+        mock_find_author_by_user_id.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:
             validate_and_extract_author_details(token)
