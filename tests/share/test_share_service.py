@@ -429,39 +429,29 @@ async def test_generate_short_url_keeps_poem_id_when_image_unavailable(poem_imag
 
 
 @pytest.mark.asyncio
-async def test_generate_short_url_falls_back_when_poem_does_not_resolve():
-    """An unpublished or unknown poem id must not suppress image generation."""
+async def test_generate_short_url_keeps_poem_url_when_poem_does_not_resolve():
+    """An unknown or unpublished poem id must still resolve through the poem url:
+    the segment/text url would serve the shared mutable output.png."""
     poem_id = "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
     share_request = ShareRequest(
         url=f"https://webuddhist.com/open/poem/{poem_id}",
         text_id="text_1",
         language="en",
     )
-    mock_text_detail = TextDTO(
-        id="text_1",
-        title="Test Title",
-        language="en",
-        type="version",
-        group_id="group_1",
-        is_published=True,
-        created_date="2021-01-01",
-        updated_date="2021-01-01",
-        published_date="2021-01-01",
-        published_by="user_1",
-        categories=[],
-        views=0
-    )
 
-    with patch("pecha_api.share.share_service.get_short_url", new_callable=AsyncMock, return_value=ShortUrlResponse(shortUrl="https://wb.pub/x")), \
+    with patch("pecha_api.share.share_service.get_short_url", new_callable=AsyncMock, return_value=ShortUrlResponse(shortUrl="https://wb.pub/x")) as mock_short_url, \
          patch("pecha_api.share.share_service._get_poem_title_", return_value=None), \
-         patch("pecha_api.share.share_service.get_text_by_id_from_openpecha", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.share.share_service.get", return_value="https://backend.example.com"), \
          patch("pecha_api.share.share_service.generate_segment_image") as mock_generate_image:
 
         await generate_short_url(share_request=share_request)
 
-        # Falling back means the generated image is produced, not a stale output.png.
-        mock_generate_image.assert_called()
-        assert share_request.poem_id is None
+        assert share_request.poem_id == poem_id
+        mock_generate_image.assert_not_called()
+        payload = mock_short_url.call_args.kwargs["payload"]
+        assert payload["og_image"] == f"https://backend.example.com/share/image?poem_id={poem_id}"
+        # No poem resolved, so the title stays the site default.
+        assert payload["og_title"] == "Pecha"
 
 
 @pytest.mark.asyncio

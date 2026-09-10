@@ -159,11 +159,10 @@ async def generate_short_url(share_request: ShareRequest) -> ShortUrlResponse:
     # A poem keeps its poem_id even when the image is unavailable: the endpoint
     # then serves a neutral image, whereas the segment/text url would resolve to
     # the shared output.png, which holds whatever the previous share generated.
+    # An id that resolves to no poem keeps the poem url for the same reason.
     poem_title = None
     if share_request.poem_id is not None:
         poem_title = await anyio.to_thread.run_sync(_get_poem_title_, share_request.poem_id)
-        if poem_title is None:
-            share_request.poem_id = None
 
     if share_request.logo:
         _generate_logo_image_(share_request=share_request)
