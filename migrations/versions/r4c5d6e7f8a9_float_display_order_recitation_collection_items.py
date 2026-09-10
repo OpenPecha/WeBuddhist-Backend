@@ -87,12 +87,38 @@ def downgrade() -> None:
     if index_exists(ITEMS_TABLE, UNIQUE_INDEX):
         op.drop_index(UNIQUE_INDEX, table_name=ITEMS_TABLE)
 
-    if _column_udt_name(ITEMS_TABLE, "display_order") == "float8":
-        op.alter_column(
-            ITEMS_TABLE,
-            "display_order",
-            existing_type=sa.Float(),
-            type_=sa.Integer(),
-            existing_nullable=False,
-            postgresql_using="ROUND(display_order)::integer",
+    if _column_udt_name(ITEMS_TABLE, "display_order") != "float8":
+        return
+
+    # ROUND(1.0) and ROUND(1.4) are both 1. Re-rank active items by their
+    # current fractional order so the integer column keeps a unique,
+    # increasing sequence (1..n) per collection.
+    op.execute(
+        sa.text(
+            """
+            WITH ranked AS (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY recitation_collection_id
+                        ORDER BY display_order, id
+                    ) AS rn
+                FROM recitation_collection_items
+                WHERE deleted_at IS NULL
+            )
+            UPDATE recitation_collection_items AS items
+            SET display_order = ranked.rn
+            FROM ranked
+            WHERE items.id = ranked.id
+            """
         )
+    )
+
+    op.alter_column(
+        ITEMS_TABLE,
+        "display_order",
+        existing_type=sa.Float(),
+        type_=sa.Integer(),
+        existing_nullable=False,
+        postgresql_using="ROUND(display_order)::integer",
+    )
