@@ -400,8 +400,9 @@ def _text_dto() -> TextDTO:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("poem_image", [None, RuntimeError("s3 down")])
-async def test_generate_short_url_falls_back_when_poem_image_unavailable(poem_image):
-    """A poem with no usable image must not skip generation and serve a stale output.png."""
+async def test_generate_short_url_keeps_poem_id_when_image_unavailable(poem_image):
+    """A poem whose image is unavailable must still resolve through the poem url,
+    which serves a neutral image, rather than the shared mutable output.png."""
     poem_id = "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
     share_request = ShareRequest(
         url=f"https://webuddhist.com/open/poem/{poem_id}",
@@ -412,16 +413,19 @@ async def test_generate_short_url_falls_back_when_poem_image_unavailable(poem_im
         {"side_effect": poem_image} if isinstance(poem_image, Exception) else {"return_value": poem_image}
     )
 
-    with patch("pecha_api.share.share_service.get_short_url", new_callable=AsyncMock, return_value=ShortUrlResponse(shortUrl="https://wb.pub/x")), \
+    with patch("pecha_api.share.share_service.get_short_url", new_callable=AsyncMock, return_value=ShortUrlResponse(shortUrl="https://wb.pub/x")) as mock_short_url, \
          patch("pecha_api.share.share_service._get_poem_title_", return_value="A Poem"), \
          patch("pecha_api.share.share_service._get_poem_image_bytes_", **image_patch), \
-         patch("pecha_api.share.share_service.get_text_by_id_from_openpecha", new_callable=AsyncMock, return_value=_text_dto()), \
+         patch("pecha_api.share.share_service.get", return_value="https://backend.example.com"), \
          patch("pecha_api.share.share_service.generate_segment_image") as mock_generate_image:
 
         await generate_short_url(share_request=share_request)
 
-        mock_generate_image.assert_called()
-        assert share_request.poem_id is None
+        assert share_request.poem_id == poem_id
+        # output.png is never written, so a concurrent share cannot leak into it.
+        mock_generate_image.assert_not_called()
+        payload = mock_short_url.call_args.kwargs["payload"]
+        assert payload["og_image"] == f"https://backend.example.com/share/image?poem_id={poem_id}"
 
 
 @pytest.mark.asyncio

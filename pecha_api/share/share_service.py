@@ -151,27 +151,18 @@ async def get_generated_image(poem_id: str | None = None):
             detail=ErrorConstants.IMAGE_NOT_FOUND_MESSAGE
         )
 
-async def _has_retrievable_image_(poem_id: str) -> bool:
-    # Resolves the image the way /share/image will, so the two cannot disagree.
-    try:
-        poem_image = await anyio.to_thread.run_sync(_get_poem_image_bytes_, poem_id)
-        return poem_image is not None
-    except Exception as error:
-        logging.warning(f"Could not verify poem image for {poem_id}: {error}")
-        return False
-
-
 async def generate_short_url(share_request: ShareRequest) -> ShortUrlResponse:
     og_description = DEFAULT_OG_DESCRIPTION
     if share_request.poem_id is None:
         share_request.poem_id = _extract_poem_id_from_url_(share_request.url)
 
-    # Clearing poem_id when the image is unavailable matters: the poem path skips
-    # generation below, and output.png still holds the previous share's image.
+    # A poem keeps its poem_id even when the image is unavailable: the endpoint
+    # then serves a neutral image, whereas the segment/text url would resolve to
+    # the shared output.png, which holds whatever the previous share generated.
     poem_title = None
     if share_request.poem_id is not None:
         poem_title = await anyio.to_thread.run_sync(_get_poem_title_, share_request.poem_id)
-        if poem_title is None or not await _has_retrievable_image_(share_request.poem_id):
+        if poem_title is None:
             share_request.poem_id = None
 
     if share_request.logo:
