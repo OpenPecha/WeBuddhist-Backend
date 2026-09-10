@@ -69,9 +69,8 @@ def _get_poem_image_bytes_(poem_id: str) -> tuple[bytes, str] | None:
     try:
         image_bytes = download_bytes(bucket_name=get("AWS_BUCKET_NAME"), s3_key=image_key)
     except Exception as error:
-        # download_bytes only converts ClientError, so transport, timeout and
-        # credential failures surface raw. Any of them must fall back to the
-        # generated image rather than failing the crawler's request.
+        # download_bytes only converts ClientError; transport, timeout and
+        # credential failures surface raw, and all must fall back to an image.
         logging.warning(f"Could not download poem image {image_key}: {error}")
         return None
 
@@ -116,23 +115,32 @@ async def get_generated_image(poem_id: str | None = None):
             detail=ErrorConstants.IMAGE_NOT_FOUND_MESSAGE
         )
 
+async def _has_retrievable_image_(poem_id: str) -> bool:
+    # Resolves the image the way /share/image will, so the two cannot disagree.
+    try:
+        poem_image = await anyio.to_thread.run_sync(_get_poem_image_bytes_, poem_id)
+        return poem_image is not None
+    except Exception as error:
+        logging.warning(f"Could not verify poem image for {poem_id}: {error}")
+        return False
+
+
 async def generate_short_url(share_request: ShareRequest) -> ShortUrlResponse:
     og_description = DEFAULT_OG_DESCRIPTION
     if share_request.poem_id is None:
         share_request.poem_id = _extract_poem_id_from_url_(share_request.url)
 
-    # An id that resolves to no published poem is treated as not a poem at all,
-    # so the share still falls back to the generated image.
+    # Clearing poem_id when the image is unavailable matters: the poem path skips
+    # generation below, and output.png still holds the previous share's image.
     poem_title = None
     if share_request.poem_id is not None:
         poem_title = await anyio.to_thread.run_sync(_get_poem_title_, share_request.poem_id)
-        if poem_title is None:
+        if poem_title is None or not await _has_retrievable_image_(share_request.poem_id):
             share_request.poem_id = None
 
     if share_request.logo:
         _generate_logo_image_(share_request=share_request)
 
-    # A poem carries its own image, so it skips the generated-image path entirely.
     if share_request.poem_id is None:
         await _generate_segment_content_image_(share_request=share_request)
 
