@@ -114,11 +114,27 @@ def downgrade() -> None:
         )
     )
 
+    # Soft-deleted rows are excluded from the re-rank above and can still
+    # hold any finite float the API accepted (including values outside
+    # int4). Zero them so ROUND(... )::integer cannot overflow and abort.
+    op.execute(
+        sa.text(
+            """
+            UPDATE recitation_collection_items
+            SET display_order = 0
+            WHERE deleted_at IS NOT NULL
+            """
+        )
+    )
+
     op.alter_column(
         ITEMS_TABLE,
         "display_order",
         existing_type=sa.Float(),
         type_=sa.Integer(),
         existing_nullable=False,
-        postgresql_using="ROUND(display_order)::integer",
+        postgresql_using=(
+            "ROUND(LEAST(GREATEST(display_order, -2147483648), 2147483647))"
+            "::integer"
+        ),
     )
