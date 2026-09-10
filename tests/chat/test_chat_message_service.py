@@ -217,6 +217,32 @@ class TestListRoomMessagesService:
         assert reactions["❤️"].count == 1
         assert reactions["❤️"].reacted_by_me is False
 
+    @patch('pecha_api.chat.message_service.get_reactions_map')
+    @patch('pecha_api.chat.message_service.get_room_messages')
+    @patch('pecha_api.chat.message_service._require_active_member')
+    @patch('pecha_api.chat.message_service._get_room_or_404')
+    @patch('pecha_api.chat.message_service.SessionLocal')
+    def test_lists_reply_with_deleted_parent(
+        self, mock_session, mock_get_room, mock_require, mock_get_messages, mock_reactions_map
+    ):
+        mock_session.return_value.__enter__.return_value = MagicMock()
+        parent_sender = MockUser(email="parent@example.com", firstname="Bob")
+        parent = MockMessage(sender=parent_sender, sender_id=parent_sender.id, body="Secret")
+        parent.deleted_at = datetime.now(tz.utc)
+        reply = MockMessage(body="Reply", parent=parent)
+        mock_get_messages.return_value = ([reply], 1)
+        mock_reactions_map.return_value = {}
+
+        result = list_room_messages_service(room_id=uuid4(), user=MockUser(), skip=0, limit=20)
+        parent_dto = result.messages[0].parent
+
+        assert parent_dto is not None
+        assert parent_dto.id == parent.id
+        assert parent_dto.body == ""
+        assert parent_dto.sender_email == "parent@example.com"
+        assert parent_dto.sender_name == "Bob"
+        assert parent_dto.deleted_at == parent.deleted_at.isoformat()
+
 
 class TestDeleteMessageService:
 
