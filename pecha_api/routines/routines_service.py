@@ -395,16 +395,31 @@ def _normalize_plan_sessions_to_series(db, sessions: List[SessionRequest]) -> Li
 
 
 def _validate_accumulators(db, sessions: List[SessionRequest]) -> None:
-    preset_ids = [
+    raw_ids = [
         session.source_id
         for session in sessions
         if session.session_type == SessionType.ACCUMULATOR and session.source_id is not None
     ]
-    if not preset_ids:
+    if not raw_ids:
         return
 
+    # source_id is a str (RECITATION sessions carry non-UUID pecha text ids),
+    # so normalize both sides before comparing against the UUID column values.
+    preset_ids = set()
+    for raw_id in raw_ids:
+        try:
+            preset_ids.add(_as_uuid(raw_id))
+        except (ValueError, AttributeError, TypeError):
+            # A non-UUID source_id can never match a preset row.
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=PRESET_ACCUMULATOR_NOT_FOUND
+                ).model_dump(),
+            )
+
     found_ids = {
-        row.id
+        _as_uuid(row.id)
         for row in db.query(Accumulator.id)
         .filter(
             Accumulator.id.in_(preset_ids),
@@ -413,7 +428,7 @@ def _validate_accumulators(db, sessions: List[SessionRequest]) -> None:
         )
         .all()
     }
-    if set(preset_ids) - found_ids:
+    if preset_ids - found_ids:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=ResponseError(

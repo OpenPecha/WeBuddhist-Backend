@@ -3,6 +3,7 @@ from contextlib import ExitStack
 from datetime import datetime, time, timezone
 
 import pytest
+from pydantic import ValidationError
 from types import SimpleNamespace
 from unittest.mock import patch, MagicMock, AsyncMock
 
@@ -3219,6 +3220,36 @@ def test_validate_accumulators_not_found():
         _validate_accumulators(db=db, sessions=sessions)
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail["message"] == PRESET_ACCUMULATOR_NOT_FOUND
+
+
+def test_validate_accumulators_found_does_not_raise():
+    """source_id is stored as a str while Accumulator.id comes back as a UUID;
+    the two must still compare equal."""
+    preset_id = uuid.uuid4()
+    sessions = [
+        SessionRequest(
+            session_type=SessionType.ACCUMULATOR,
+            accumulator_id=preset_id,
+            display_order=0,
+        )
+    ]
+    db = MagicMock()
+    query_chain = MagicMock()
+    query_chain.filter.return_value = query_chain
+    query_chain.all.return_value = [SimpleNamespace(id=preset_id)]
+    db.query.return_value = query_chain
+
+    _validate_accumulators(db=db, sessions=sessions)
+
+
+def test_accumulator_session_rejects_non_uuid_source_id():
+    """Only RECITATION sessions may carry a non-UUID source_id."""
+    with pytest.raises(ValidationError):
+        SessionRequest(
+            session_type=SessionType.ACCUMULATOR,
+            source_id="not-a-uuid",
+            display_order=0,
+        )
 
 
 def test_resolve_accumulator_sessions_success():
