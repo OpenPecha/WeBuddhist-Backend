@@ -14,7 +14,8 @@ from pecha_api.share.share_service import (
     _generate_logo_image_,
     _generate_segment_content_image_,
     _extract_poem_id_from_url_,
-    _get_poem_image_bytes_
+    _get_poem_image_bytes_,
+    _generate_fallback_logo_image_
 )
 from pecha_api.share.share_response_models import (
     ShortUrlResponse,
@@ -570,35 +571,42 @@ def test_get_poem_image_bytes_returns_none_on_transport_failures(failure):
 
 @pytest.mark.asyncio
 async def test_get_generated_image_falls_back_when_poem_lookup_raises():
-    """A database failure must still yield the fallback image, not a 500."""
-    with patch("pecha_api.share.share_service._get_poem_image_bytes_", side_effect=RuntimeError("db down")), \
-         patch("anyio.open_file", new_callable=AsyncMock) as mock_open_file:
-        mock_file = AsyncMock()
-        mock_file.read.return_value = b"fallback_image"
-        cm = AsyncMock()
-        cm.__aenter__.return_value = mock_file
-        mock_open_file.return_value = cm
-
+    """A database failure must still yield an image, not a 500."""
+    with patch("pecha_api.share.share_service._get_poem_image_bytes_", side_effect=RuntimeError("db down")):
         response = await get_generated_image(poem_id="3f2504e0-4f89-11d3-9a0c-0305e82c3301")
 
         body = b"".join([chunk async for chunk in response.body_iterator])
-        assert body == b"fallback_image"
+        assert Image.open(io.BytesIO(body)).format == "PNG"
+
+
+@pytest.mark.asyncio
+async def test_poem_fallback_never_serves_the_shared_output_png():
+    """A poem failing at crawl time must not leak the previous share's image."""
+    with patch("pecha_api.share.share_service._get_poem_image_bytes_", return_value=None), \
+         patch("anyio.open_file", new_callable=AsyncMock) as mock_open_file:
+        response = await get_generated_image(poem_id="3f2504e0-4f89-11d3-9a0c-0305e82c3301")
+
+        # The shared, mutable output.png is never read on the poem path.
+        mock_open_file.assert_not_called()
+
+        body = b"".join([chunk async for chunk in response.body_iterator])
+        assert Image.open(io.BytesIO(body)).size == (1200, 630)
+
+
+def test_generate_fallback_logo_image_without_logo_file():
+    with patch("pecha_api.share.share_service.Image.open", side_effect=OSError("missing logo")):
+        response = _generate_fallback_logo_image_()
+
+        assert response.media_type == "image/png"
 
 
 @pytest.mark.asyncio
 async def test_get_generated_image_falls_back_when_download_fails():
-    with patch("pecha_api.share.share_service._get_poem_image_bytes_", return_value=None), \
-         patch("anyio.open_file", new_callable=AsyncMock) as mock_open_file:
-        mock_file = AsyncMock()
-        mock_file.read.return_value = b"fallback_image"
-        cm = AsyncMock()
-        cm.__aenter__.return_value = mock_file
-        mock_open_file.return_value = cm
-
+    with patch("pecha_api.share.share_service._get_poem_image_bytes_", return_value=None):
         response = await get_generated_image(poem_id="3f2504e0-4f89-11d3-9a0c-0305e82c3301")
 
         body = b"".join([chunk async for chunk in response.body_iterator])
-        assert body == b"fallback_image"
+        assert Image.open(io.BytesIO(body)).format == "PNG"
 
 
 def test_get_poem_image_bytes_passes_through_non_webp():

@@ -8,6 +8,7 @@ from PIL import Image
 from pecha_api.error_contants import ErrorConstants
 from starlette.responses import StreamingResponse
 from .pecha_text_image_generator import generate_segment_image
+from .pecha_text_image_generator_config import CONFIG
 from pecha_api.texts.segments.segments_openpecha_service import get_openpecha_segment_details_by_id
 from pecha_api.texts.texts_openpecha_service import get_text_by_id_from_openpecha
 from pecha_api.config import get
@@ -38,6 +39,7 @@ IMAGE_MEDIA_TYPES = {
     ".jpg": JPEG_MEDIA_TYPE,
     ".jpeg": JPEG_MEDIA_TYPE,
 }
+PNG_FORMAT = "PNG"
 DEFAULT_OG_TITLE = get("SITE_NAME")
 DEFAULT_OG_DESCRIPTION = get("SITE_NAME")
 PECHA_FRONTEND_ENDPOINT = "https://webuddhist.com/chapter"
@@ -90,6 +92,29 @@ def _get_poem_image_bytes_(poem_id: str) -> tuple[bytes, str] | None:
     return image_bytes, media_type
 
 
+def _generate_fallback_logo_image_() -> StreamingResponse:
+    """Build a branded image in memory, never touching the shared output.png."""
+    width = CONFIG["FALLBACK_IMAGE_WIDTH"]
+    height = CONFIG["FALLBACK_IMAGE_HEIGHT"]
+    image = Image.new("RGB", (width, height), color=CONFIG["BG_COLOR"]["DEFAULT"])
+    try:
+        logo = Image.open(LOGO_PATH).convert("RGBA")
+        logo_height = int(height * CONFIG["FALLBACK_LOGO_HEIGHT_RATIO"])
+        logo.thumbnail((width, logo_height), Image.Resampling.LANCZOS)
+        position = (
+            (image.width - logo.width) // 2,
+            (image.height - logo.height) // 2,
+        )
+        image.paste(logo, position, logo)
+    except (OSError, ValueError) as error:
+        logging.warning(f"Could not add logo to fallback poem image: {error}")
+
+    buffer = io.BytesIO()
+    image.save(buffer, format=PNG_FORMAT)
+    buffer.seek(0)
+    return StreamingResponse(buffer, media_type=MEDIA_TYPE)
+
+
 async def get_generated_image(poem_id: str | None = None):
     try:
         if poem_id is not None:
@@ -102,6 +127,10 @@ async def get_generated_image(poem_id: str | None = None):
             if poem_image is not None:
                 image_bytes, media_type = poem_image
                 return StreamingResponse(io.BytesIO(image_bytes), media_type=media_type)
+
+            # output.png is shared and mutable, so it may hold another share's
+            # image. A poem that fails here gets a neutral logo image instead.
+            return await anyio.to_thread.run_sync(_generate_fallback_logo_image_)
 
         image_path = IMAGE_PATH
         async with await anyio.open_file(image_path, "rb") as file:
