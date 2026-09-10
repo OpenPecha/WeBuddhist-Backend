@@ -7,7 +7,11 @@ from pecha_api.chat.enums import ChatMessageReportReason
 
 
 class ChatMessageParentDTO(BaseModel):
-    """Compact DTO for the message a reply points to (the quoted message)."""
+    """Compact DTO for the message a reply points to (the quoted message).
+
+    A deleted parent still includes id, sender, and deleted_at so replies can
+    show who was quoted; body is empty and content is not sent.
+    """
     id: UUID
     sender_id: UUID
     sender_email: str
@@ -15,6 +19,15 @@ class ChatMessageParentDTO(BaseModel):
     sender_avatar_url: Optional[str] = None
     body: str
     created_at: str
+    deleted_at: Optional[str] = None
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        """Omit deleted_at entirely for non-deleted parents instead of sending null."""
+        data = handler(self)
+        if data.get("deleted_at") is None:
+            data.pop("deleted_at", None)
+        return data
 
 
 class ChatMessageReactionUserDTO(BaseModel):
