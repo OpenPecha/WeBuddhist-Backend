@@ -60,6 +60,13 @@ class BookmarkRecitationCollectionDTO(BaseModel):
     item_count: int
 
 
+class BookmarkGroupAccumulatorDTO(BaseModel):
+    id: UUID
+    group_id: UUID
+    title: str
+    image: Optional[str] = None
+
+
 class BookmarkGroupRecitationCollectionDTO(BaseModel):
     id: UUID
     group_id: UUID
@@ -108,6 +115,7 @@ class BookmarkDTO(BaseModel):
     timer: Optional[BookmarkTimerDTO] = None
     recitation_collection: Optional[BookmarkRecitationCollectionDTO] = None
     group_recitation_collection: Optional[BookmarkGroupRecitationCollectionDTO] = None
+    group_accumulator: Optional[BookmarkGroupAccumulatorDTO] = None
 
 
 class BookmarksResponse(BaseModel):

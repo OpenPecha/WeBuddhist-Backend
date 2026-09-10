@@ -1190,10 +1190,55 @@ def test_unfollow_group_calls_repository():
         return_value=user,
     ), patch(
         "pecha_api.plans.groups.groups_service.remove_group_follow",
-    ) as mock_unfollow:
+    ) as mock_unfollow, patch(
+        "pecha_api.plans.groups.groups_service.is_user_joined_group",
+        return_value=False,
+    ):
         _session_local_context(mock_session)
         unfollow_group(token="t", group_id=uuid4())
     mock_unfollow.assert_called_once()
+
+
+def test_unfollow_group_drops_chat_room_membership_when_not_joined():
+    user = MagicMock()
+    user.id = uuid4()
+    group_id = uuid4()
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.remove_group_follow",
+    ), patch(
+        "pecha_api.plans.groups.groups_service.is_user_joined_group",
+        return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.leave_group_chat_room",
+    ) as mock_leave_chat_room:
+        mock_db = _session_local_context(mock_session)
+        unfollow_group(token="t", group_id=group_id)
+    mock_leave_chat_room.assert_called_once_with(db=mock_db, group_id=group_id, user_id=user.id)
+
+
+def test_unfollow_group_keeps_chat_room_membership_when_still_joined():
+    """Chat access is granted to joiners OR followers, so unfollowing a group
+    the user is still a joiner of must not kick them out of its chat room."""
+    user = MagicMock()
+    user.id = uuid4()
+    group_id = uuid4()
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.remove_group_follow",
+    ), patch(
+        "pecha_api.plans.groups.groups_service.is_user_joined_group",
+        return_value=True,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.leave_group_chat_room",
+    ) as mock_leave_chat_room:
+        mock_db = _session_local_context(mock_session)
+        unfollow_group(token="t", group_id=group_id)
+    mock_leave_chat_room.assert_not_called()
 
 
 def test_list_followed_groups():
@@ -1369,7 +1414,10 @@ def test_leave_group_calls_repository():
         "pecha_api.plans.groups.groups_service.remove_group_accumulator_joins_for_group",
     ) as mock_remove_accumulator_joins, patch(
         "pecha_api.plans.groups.groups_service.leave_group_membership",
-    ) as mock_leave_membership:
+    ) as mock_leave_membership, patch(
+        "pecha_api.plans.groups.groups_service.is_user_following_group",
+        return_value=False,
+    ):
         mock_db = _session_local_context(mock_session)
         leave_group(token="t", group_id=group_id)
     mock_remove_accumulator_joins.assert_called_once_with(
@@ -1382,6 +1430,52 @@ def test_leave_group_calls_repository():
         user_id=user.id,
         group_id=group_id,
     )
+
+
+def test_leave_group_drops_chat_room_membership_when_not_following():
+    user = MagicMock()
+    user.id = uuid4()
+    group_id = uuid4()
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.remove_group_accumulator_joins_for_group",
+    ), patch(
+        "pecha_api.plans.groups.groups_service.leave_group_membership",
+    ), patch(
+        "pecha_api.plans.groups.groups_service.is_user_following_group",
+        return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.leave_group_chat_room",
+    ) as mock_leave_chat_room:
+        mock_db = _session_local_context(mock_session)
+        leave_group(token="t", group_id=group_id)
+    mock_leave_chat_room.assert_called_once_with(db=mock_db, group_id=group_id, user_id=user.id)
+
+
+def test_leave_group_keeps_chat_room_membership_when_still_following():
+    """Chat access is granted to joiners OR followers, so leaving a group the
+    user still follows must not kick them out of its chat room."""
+    user = MagicMock()
+    user.id = uuid4()
+    group_id = uuid4()
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.remove_group_accumulator_joins_for_group",
+    ), patch(
+        "pecha_api.plans.groups.groups_service.leave_group_membership",
+    ), patch(
+        "pecha_api.plans.groups.groups_service.is_user_following_group",
+        return_value=True,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.leave_group_chat_room",
+    ) as mock_leave_chat_room:
+        mock_db = _session_local_context(mock_session)
+        leave_group(token="t", group_id=group_id)
+    mock_leave_chat_room.assert_not_called()
 
 
 def test_list_joined_groups():

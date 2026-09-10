@@ -19,6 +19,7 @@ from pecha_api.chat.service import (
     build_message_dto,
     build_room_dto,
     get_room_detail_service,
+    leave_group_chat_room,
     list_group_people_service,
     list_my_rooms_service,
     mark_room_read_service,
@@ -262,6 +263,47 @@ class TestResolveOrCreateGroupRoom:
             resolve_or_create_group_room(db=MagicMock(), group_id=uuid4(), user=MockUser())
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+class TestLeaveGroupChatRoom:
+
+    @patch('pecha_api.chat.service.leave_member')
+    @patch('pecha_api.chat.service.get_active_member')
+    @patch('pecha_api.chat.service.get_room_by_group_id')
+    def test_marks_active_member_as_left(self, mock_get_room, mock_get_active_member, mock_leave_member):
+        room = MagicMock(id=uuid4())
+        member = MagicMock()
+        mock_get_room.return_value = room
+        mock_get_active_member.return_value = member
+        db = MagicMock()
+        user_id = uuid4()
+
+        leave_group_chat_room(db=db, group_id=uuid4(), user_id=user_id)
+
+        mock_get_active_member.assert_called_once_with(db=db, room_id=room.id, user_id=user_id)
+        mock_leave_member.assert_called_once_with(db=db, member=member)
+
+    @patch('pecha_api.chat.service.leave_member')
+    @patch('pecha_api.chat.service.get_active_member')
+    @patch('pecha_api.chat.service.get_room_by_group_id')
+    def test_noop_when_no_room(self, mock_get_room, mock_get_active_member, mock_leave_member):
+        mock_get_room.return_value = None
+
+        leave_group_chat_room(db=MagicMock(), group_id=uuid4(), user_id=uuid4())
+
+        mock_get_active_member.assert_not_called()
+        mock_leave_member.assert_not_called()
+
+    @patch('pecha_api.chat.service.leave_member')
+    @patch('pecha_api.chat.service.get_active_member')
+    @patch('pecha_api.chat.service.get_room_by_group_id')
+    def test_noop_when_user_not_an_active_member(self, mock_get_room, mock_get_active_member, mock_leave_member):
+        mock_get_room.return_value = MagicMock(id=uuid4())
+        mock_get_active_member.return_value = None
+
+        leave_group_chat_room(db=MagicMock(), group_id=uuid4(), user_id=uuid4())
+
+        mock_leave_member.assert_not_called()
 
 
 class TestResolveOrCreatePrivateRoom:

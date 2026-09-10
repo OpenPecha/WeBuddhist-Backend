@@ -1,11 +1,20 @@
 from collections import defaultdict
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, func, or_, select, true
+from sqlalchemy.orm import Session, aliased
 
 from pecha_api.chat.models import ChatRoom
+from pecha_api.notification.notification_preference_enums import (
+    NotificationChannel,
+    NotificationScope,
+    NotificationType,
+)
+from pecha_api.notification.notification_preference_models import (
+    UserNotificationPreference,
+)
 from pecha_api.plans.groups.groups_models import author_group_joins
 from pecha_api.push_devices.push_device_models import PushDeviceToken
 from pecha_api.users.users_models import Users
@@ -30,6 +39,50 @@ def list_private_chat_recipient_user_ids(
     return []
 
 
+def _preference_filtered_join(
+    *,
+    group_id: UUID,
+    notification_type: NotificationType,
+    channel: NotificationChannel,
+):
+    """Join `author_group_joins` to the user's preferences for one notification.
+
+    Returns the join source plus the conditions that implement the resolution
+    rule: `enabled` is most-specific-wins (a GROUP row beats a GLOBAL one,
+    absent means allowed), while an unexpired `muted_until` on *either* row
+    suppresses — a global snooze silences a group the user explicitly enabled.
+    """
+    group_pref = aliased(UserNotificationPreference)
+    global_pref = aliased(UserNotificationPreference)
+
+    source = author_group_joins.outerjoin(
+        group_pref,
+        and_(
+            group_pref.user_id == author_group_joins.c.user_id,
+            group_pref.notification_type == notification_type,
+            group_pref.channel == channel,
+            group_pref.scope_type == NotificationScope.GROUP,
+            group_pref.scope_id == group_id,
+        ),
+    ).outerjoin(
+        global_pref,
+        and_(
+            global_pref.user_id == author_group_joins.c.user_id,
+            global_pref.notification_type == notification_type,
+            global_pref.channel == channel,
+            global_pref.scope_id.is_(None),
+        ),
+    )
+
+    # An IS NULL check covers both the un-matched LEFT JOIN and the un-muted row.
+    conditions = [
+        func.coalesce(group_pref.enabled, global_pref.enabled, true()).is_(True),
+        or_(group_pref.muted_until.is_(None), group_pref.muted_until <= func.now()),
+        or_(global_pref.muted_until.is_(None), global_pref.muted_until <= func.now()),
+    ]
+    return source, conditions
+
+
 def list_group_chat_recipient_user_ids(
     db: Session,
     *,
@@ -37,28 +90,85 @@ def list_group_chat_recipient_user_ids(
     sender_id: UUID,
     skip: int,
     limit: int,
+    notification_type: Optional[NotificationType] = None,
+    channel: NotificationChannel = NotificationChannel.PUSH,
 ) -> Tuple[List[UUID], int]:
+    """Members of a group who should receive one notification, paginated.
+
+    Preference filtering is applied to the page *and* the count, so `total`
+    stays consistent with what is returned — the worker pages off `total` and
+    `has_more`, which a post-filter would leave wrong. Passing no
+    `notification_type` skips filtering entirely.
+    """
+    source = author_group_joins
+    conditions = [
+        author_group_joins.c.group_id == group_id,
+        author_group_joins.c.user_id != sender_id,
+    ]
+
+    if notification_type is not None:
+        source, preference_conditions = _preference_filtered_join(
+            group_id=group_id,
+            notification_type=notification_type,
+            channel=channel,
+        )
+        conditions.extend(preference_conditions)
+
     base = (
         select(author_group_joins.c.user_id)
-        .where(
-            author_group_joins.c.group_id == group_id,
-            author_group_joins.c.user_id != sender_id,
-        )
+        .select_from(source)
+        .where(*conditions)
         .order_by(author_group_joins.c.created_at.asc(), author_group_joins.c.user_id.asc())
     )
     total = (
-        db.execute(
-            select(func.count())
-            .select_from(author_group_joins)
-            .where(
-                author_group_joins.c.group_id == group_id,
-                author_group_joins.c.user_id != sender_id,
-            )
-        ).scalar()
+        db.execute(select(func.count()).select_from(source).where(*conditions)).scalar()
         or 0
     )
     rows = db.execute(base.offset(skip).limit(limit)).all()
     return [row[0] for row in rows], int(total)
+
+
+def filter_users_by_notification_preference(
+    db: Session,
+    *,
+    user_ids: Sequence[UUID],
+    notification_type: NotificationType,
+    channel: NotificationChannel = NotificationChannel.PUSH,
+) -> List[UUID]:
+    """Drop users who have opted out of a notification with no group scope.
+
+    Used by the private-chat path, where only GLOBAL rows can apply. Order of
+    `user_ids` is preserved.
+    """
+    if not user_ids:
+        return []
+
+    rows = db.execute(
+        select(
+            UserNotificationPreference.user_id,
+            UserNotificationPreference.enabled,
+            UserNotificationPreference.muted_until,
+        ).where(
+            UserNotificationPreference.user_id.in_(list(user_ids)),
+            UserNotificationPreference.notification_type == notification_type,
+            UserNotificationPreference.channel == channel,
+            UserNotificationPreference.scope_id.is_(None),
+        )
+    ).all()
+
+    now = datetime.now(timezone.utc)
+    blocked: set[UUID] = set()
+    for user_id, enabled, muted_until in rows:
+        if not enabled:
+            blocked.add(user_id)
+            continue
+        if muted_until is not None:
+            if muted_until.tzinfo is None:
+                muted_until = muted_until.replace(tzinfo=timezone.utc)
+            if muted_until > now:
+                blocked.add(user_id)
+
+    return [user_id for user_id in user_ids if user_id not in blocked]
 
 
 def get_active_push_devices_by_user_ids(

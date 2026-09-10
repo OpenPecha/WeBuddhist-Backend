@@ -6,6 +6,13 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from pecha_api.notification.notification_preference_enums import (
+    NotificationChannel,
+    NotificationType,
+)
+from pecha_api.notification.notification_preference_repository import (
+    global_preference_blocks,
+)
 from pecha_api.users.users_models import Users
 
 from .event_participant_model import GroupEventParticipant
@@ -77,12 +84,30 @@ def get_event_participants_paginated(
     event_id: UUID,
     skip: int = 0,
     limit: int = 20,
+    notification_type: Optional[NotificationType] = None,
+    channel: NotificationChannel = NotificationChannel.PUSH,
 ) -> Tuple[List[Tuple[Users, datetime]], int]:
+    """Participants of one event, paginated.
+
+    With `notification_type` set, drops participants who have turned that
+    notification off or snoozed it - the reminder path passes it, the
+    participant list screen does not. The filter sits ahead of OFFSET/LIMIT
+    and inside the count so `total` describes the same set the page is drawn
+    from; the worker pages off that total.
+    """
     query = (
         db.query(Users, GroupEventParticipant.created_at)
         .join(GroupEventParticipant, GroupEventParticipant.user_id == Users.id)
         .filter(GroupEventParticipant.event_id == event_id)
     )
+    if notification_type is not None:
+        query = query.filter(
+            ~global_preference_blocks(
+                Users.id,
+                notification_type=notification_type,
+                channel=channel,
+            )
+        )
     total = query.count()
     rows = (
         query.order_by(GroupEventParticipant.created_at.desc())
