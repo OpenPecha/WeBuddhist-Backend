@@ -22,6 +22,10 @@ class SessionRequest(BaseModel):
         None,
         description="Preset accumulator id from GET /accumulators/presets (stored as source_id)",
     )
+    group_accumulator_id: Optional[UUID] = Field(
+        None,
+        description="Group accumulator id from GET /group-accumulators (stored as source_id)",
+    )
     duration_ms: Optional[int] = None
     display_order: int
 
@@ -37,6 +41,11 @@ class SessionRequest(BaseModel):
                 self.source_id = str(self.accumulator_id)
             elif self.source_id is not None and self.accumulator_id is None:
                 self.accumulator_id = UUID(self.source_id)
+        elif self.session_type == SessionType.GROUP_ACCUMULATOR:
+            if self.group_accumulator_id is not None and self.source_id is None:
+                self.source_id = str(self.group_accumulator_id)
+            elif self.source_id is not None and self.group_accumulator_id is None:
+                self.group_accumulator_id = UUID(self.source_id)
         return self
 
     @model_validator(mode="after")
@@ -99,6 +108,10 @@ class SessionDTO(BaseModel):
         None,
         description="Preset accumulator id (same id returned by GET /accumulators/presets)",
     )
+    group_accumulator_id: Optional[UUID] = Field(
+        None,
+        description="Group accumulator id (same id returned by GET /group-accumulators)",
+    )
     title: Optional[str] = None
     language: Optional[str] = None  
     duration_ms: Optional[int] = None  
@@ -118,6 +131,7 @@ class SessionDTO(BaseModel):
             for field in (
                 "source_id",
                 "accumulator_id",
+                "group_accumulator_id",
                 "title",
                 "language",
                 "image",
@@ -141,6 +155,7 @@ class SessionDTO(BaseModel):
                 "current_plan_id",
                 "current_plan_title",
                 "accumulator_id",
+                "group_accumulator_id",
                 "first_segment",
             ):
                 data.pop(field, None)
@@ -153,6 +168,7 @@ class SessionDTO(BaseModel):
                 "current_plan_id",
                 "current_plan_title",
                 "accumulator_id",
+                "group_accumulator_id",
             ):
                 data.pop(field, None)
         elif self.session_type == SessionType.ACCUMULATOR:
@@ -167,6 +183,23 @@ class SessionDTO(BaseModel):
                 "item_count",
                 "current_plan_id",
                 "current_plan_title",
+                "group_accumulator_id",
+                "first_segment",
+            ):
+                data.pop(field, None)
+        elif self.session_type == SessionType.GROUP_ACCUMULATOR:
+            group_accumulator_id = self.group_accumulator_id or self.source_id
+            if group_accumulator_id is not None:
+                data["group_accumulator_id"] = group_accumulator_id
+            data.pop("source_id", None)
+            for field in (
+                "duration_ms",
+                "start_date",
+                "started_at",
+                "item_count",
+                "current_plan_id",
+                "current_plan_title",
+                "accumulator_id",
                 "first_segment",
             ):
                 data.pop(field, None)
@@ -177,11 +210,18 @@ class SessionDTO(BaseModel):
                 "current_plan_id",
                 "current_plan_title",
                 "accumulator_id",
+                "group_accumulator_id",
                 "first_segment",
             ):
                 data.pop(field, None)
         else:  # SERIES exposes start_date / started_at and current plan fields
-            for field in ("duration_ms", "item_count", "accumulator_id", "first_segment"):
+            for field in (
+                "duration_ms",
+                "item_count",
+                "accumulator_id",
+                "group_accumulator_id",
+                "first_segment",
+            ):
                 data.pop(field, None)
         return data
 

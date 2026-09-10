@@ -27,7 +27,9 @@ from pecha_api.routines.routines_service import (
     _normalize_plan_sessions_to_series,
     _validate_session_uniqueness,
     _validate_accumulators,
+    _validate_group_accumulators,
     _resolve_accumulator_sessions,
+    _resolve_group_accumulator_sessions,
     build_session_models,
     group_sessions_by_block,
     build_time_block_dto,
@@ -59,6 +61,10 @@ from pecha_api.routines.response_message import (
     DUPLICATE_ACCUMULATOR,
     ACCUMULATOR_ID_REQUIRED,
     PRESET_ACCUMULATOR_NOT_FOUND,
+    DUPLICATE_GROUP_ACCUMULATOR,
+    GROUP_ACCUMULATOR_ID_REQUIRED,
+    GROUP_ACCUMULATOR_NOT_FOUND,
+    GROUP_ACCUMULATOR_NOT_JOINED,
 )
 
 def _mock_session_with_db():
@@ -3360,3 +3366,282 @@ def test_resolve_accumulator_sessions_missing_preset_skipped():
         db=db, accumulator_sessions=[session], user_id=user_id
     )
     assert result == []
+
+
+# --- GROUP_ACCUMULATOR session type ---------------------------------------
+
+
+def test_group_accumulator_session_request_maps_id_to_source_id():
+    group_accumulator_id = uuid.uuid4()
+    session = SessionRequest(
+        session_type=SessionType.GROUP_ACCUMULATOR,
+        group_accumulator_id=group_accumulator_id,
+        display_order=0,
+    )
+    assert session.source_id == str(group_accumulator_id)
+
+
+def test_group_accumulator_session_request_maps_source_id_to_id():
+    group_accumulator_id = uuid.uuid4()
+    session = SessionRequest(
+        session_type=SessionType.GROUP_ACCUMULATOR,
+        source_id=str(group_accumulator_id),
+        display_order=0,
+    )
+    assert session.group_accumulator_id == group_accumulator_id
+
+
+def test_group_accumulator_session_dto_serialization():
+    group_accumulator_id = uuid.uuid4()
+    dto = SessionDTO(
+        id=uuid.uuid4(),
+        session_type=SessionType.GROUP_ACCUMULATOR,
+        source_id=str(group_accumulator_id),
+        group_accumulator_id=group_accumulator_id,
+        title="Group Mani",
+        display_order=0,
+    )
+    data = dto.model_dump()
+    assert data["group_accumulator_id"] == group_accumulator_id
+    assert "source_id" not in data
+    assert "accumulator_id" not in data
+    assert "duration_ms" not in data
+
+
+def test_accumulator_session_dto_omits_group_accumulator_id():
+    accumulator_id = uuid.uuid4()
+    dto = SessionDTO(
+        id=uuid.uuid4(),
+        session_type=SessionType.ACCUMULATOR,
+        source_id=str(accumulator_id),
+        accumulator_id=accumulator_id,
+        display_order=0,
+    )
+    assert "group_accumulator_id" not in dto.model_dump()
+
+
+def test_validate_group_accumulator_session_requires_id():
+    request = CreateTimeBlockRequest(
+        time="08:00",
+        time_int=800,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.GROUP_ACCUMULATOR,
+                display_order=0,
+            )
+        ],
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_time_block_request(request)
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail["message"] == GROUP_ACCUMULATOR_ID_REQUIRED
+
+
+def test_validate_duplicate_group_accumulator_in_time_block():
+    group_accumulator_id = uuid.uuid4()
+    sessions = [
+        SessionRequest(
+            session_type=SessionType.GROUP_ACCUMULATOR,
+            group_accumulator_id=group_accumulator_id,
+            display_order=0,
+        ),
+        SessionRequest(
+            session_type=SessionType.GROUP_ACCUMULATOR,
+            group_accumulator_id=group_accumulator_id,
+            display_order=1,
+        ),
+    ]
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_session_uniqueness(sessions)
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail["message"] == DUPLICATE_GROUP_ACCUMULATOR
+
+
+def _group_accumulator_session_request(group_accumulator_id):
+    return [
+        SessionRequest(
+            session_type=SessionType.GROUP_ACCUMULATOR,
+            group_accumulator_id=group_accumulator_id,
+            display_order=0,
+        )
+    ]
+
+
+def test_validate_group_accumulators_not_found():
+    group_accumulator_id = uuid.uuid4()
+    db = MagicMock()
+    query_chain = MagicMock()
+    query_chain.filter.return_value = query_chain
+    query_chain.all.return_value = []
+    db.query.return_value = query_chain
+
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_group_accumulators(
+            db=db,
+            sessions=_group_accumulator_session_request(group_accumulator_id),
+            user_id=uuid.uuid4(),
+        )
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail["message"] == GROUP_ACCUMULATOR_NOT_FOUND
+
+
+def test_validate_group_accumulators_requires_membership():
+    """Joining runs its own authorization, so the routine must not join on the
+    user's behalf; an unjoined group accumulator is rejected."""
+    group_accumulator_id = uuid.uuid4()
+    db = MagicMock()
+    query_chain = MagicMock()
+    query_chain.filter.return_value = query_chain
+    query_chain.all.return_value = [SimpleNamespace(id=group_accumulator_id)]
+    db.query.return_value = query_chain
+
+    with patch(
+        "pecha_api.routines.routines_service.get_joined_group_accumulator_ids_by_user",
+        return_value=[],
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            _validate_group_accumulators(
+                db=db,
+                sessions=_group_accumulator_session_request(group_accumulator_id),
+                user_id=uuid.uuid4(),
+            )
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail["message"] == GROUP_ACCUMULATOR_NOT_JOINED
+
+
+def test_validate_group_accumulators_joined_does_not_raise():
+    group_accumulator_id = uuid.uuid4()
+    db = MagicMock()
+    query_chain = MagicMock()
+    query_chain.filter.return_value = query_chain
+    query_chain.all.return_value = [SimpleNamespace(id=group_accumulator_id)]
+    db.query.return_value = query_chain
+
+    with patch(
+        "pecha_api.routines.routines_service.get_joined_group_accumulator_ids_by_user",
+        return_value=[group_accumulator_id],
+    ):
+        _validate_group_accumulators(
+            db=db,
+            sessions=_group_accumulator_session_request(group_accumulator_id),
+            user_id=uuid.uuid4(),
+        )
+
+
+def test_validate_group_accumulators_skips_when_no_such_session():
+    db = MagicMock()
+    _validate_group_accumulators(
+        db=db,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.TIMER,
+                duration_ms=1000,
+                display_order=0,
+            )
+        ],
+        user_id=uuid.uuid4(),
+    )
+    db.query.assert_not_called()
+
+
+def test_resolve_group_accumulator_sessions_success():
+    group_accumulator_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+    session = SimpleNamespace(
+        id=session_id,
+        session_type=SessionType.GROUP_ACCUMULATOR,
+        source_id=str(group_accumulator_id),
+        display_order=3,
+    )
+    group_accumulator = SimpleNamespace(
+        id=group_accumulator_id,
+        title="Group Mani",
+        image_key=None,
+    )
+    db = MagicMock()
+    query_chain = MagicMock()
+    query_chain.filter.return_value = query_chain
+    query_chain.all.return_value = [group_accumulator]
+    db.query.return_value = query_chain
+
+    resolved = _resolve_group_accumulator_sessions(
+        db=db, group_accumulator_sessions=[session]
+    )
+
+    assert len(resolved) == 1
+    dto = resolved[0]
+    assert dto.id == session_id
+    assert dto.session_type == SessionType.GROUP_ACCUMULATOR
+    assert dto.group_accumulator_id == group_accumulator_id
+    assert dto.title == "Group Mani"
+    assert dto.display_order == 3
+
+
+def test_resolve_group_accumulator_sessions_skips_missing():
+    session = SimpleNamespace(
+        id=uuid.uuid4(),
+        session_type=SessionType.GROUP_ACCUMULATOR,
+        source_id=str(uuid.uuid4()),
+        display_order=0,
+    )
+    db = MagicMock()
+    query_chain = MagicMock()
+    query_chain.filter.return_value = query_chain
+    query_chain.all.return_value = []
+    db.query.return_value = query_chain
+
+    assert _resolve_group_accumulator_sessions(
+        db=db, group_accumulator_sessions=[session]
+    ) == []
+
+
+def test_resolve_group_accumulator_sessions_empty():
+    db = MagicMock()
+    assert _resolve_group_accumulator_sessions(
+        db=db, group_accumulator_sessions=[]
+    ) == []
+    db.query.assert_not_called()
+
+
+def test_build_session_models_persists_group_accumulator_source_id():
+    group_accumulator_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+    models = build_session_models(
+        time_block_id=time_block_id,
+        sessions=_group_accumulator_session_request(group_accumulator_id),
+    )
+    assert len(models) == 1
+    assert models[0].session_type == SessionType.GROUP_ACCUMULATOR
+    assert models[0].source_id == str(group_accumulator_id)
+    assert models[0].duration_ms is None
+
+
+def _raw_session(session_type, source_id):
+    """A stand-in for SessionRequest that skips its UUID-format validator, to
+    reach the services' own defensive guard."""
+    return SimpleNamespace(session_type=session_type, source_id=source_id)
+
+
+def test_validate_accumulators_guards_non_uuid_source_id():
+    db = MagicMock()
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_accumulators(
+            db=db,
+            sessions=[_raw_session(SessionType.ACCUMULATOR, "not-a-uuid")],
+        )
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail["message"] == PRESET_ACCUMULATOR_NOT_FOUND
+    db.query.assert_not_called()
+
+
+def test_validate_group_accumulators_guards_non_uuid_source_id():
+    db = MagicMock()
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_group_accumulators(
+            db=db,
+            sessions=[_raw_session(SessionType.GROUP_ACCUMULATOR, "not-a-uuid")],
+            user_id=uuid.uuid4(),
+        )
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail["message"] == GROUP_ACCUMULATOR_NOT_FOUND
+    db.query.assert_not_called()

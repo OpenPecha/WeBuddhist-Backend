@@ -10,6 +10,7 @@ from pecha_api.bookmarks.bookmark_enums import BookmarkType
 from pecha_api.bookmarks.bookmark_models import Bookmark
 from pecha_api.bookmarks.bookmark_response_models import (
     BookmarkAccumulatorDTO,
+    BookmarkGroupAccumulatorDTO,
     BookmarkGroupRecitationCollectionDTO,
     BookmarkRecitationCollectionDTO,
     BookmarkPlanDTO,
@@ -42,6 +43,7 @@ from pecha_api.plans.series.series_service import (
     compute_series_progress,
 )
 from pecha_api.accumulator.accumulator_models import Accumulator
+from pecha_api.accumulator.group_accumulator_models import GroupAccumulator
 from pecha_api.accumulator.accumulator_service import (
     generate_mala_image_presigned_url,
     resolve_accumulator_bookmark_mala_image_url,
@@ -665,6 +667,48 @@ def enrich_group_recitation_collection_bookmark(
     }
 
 
+def enrich_group_accumulator_bookmark(
+    db: Session,
+    source_id: str,
+    user_id: UUID,
+) -> dict:
+    group_accumulator_id = _parse_source_uuid(source_id)
+    if group_accumulator_id is None:
+        return {}
+
+    group_accumulator = (
+        db.query(GroupAccumulator)
+        .filter(
+            GroupAccumulator.id == group_accumulator_id,
+            GroupAccumulator.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if not group_accumulator:
+        return {}
+
+    # Mirror the access rules of group-content reads: group accumulations are
+    # visible only when the group is public or the user is currently a member.
+    group = get_group_by_id(db=db, group_id=group_accumulator.group_id)
+    if not group or not is_group_published(group):
+        return {}
+    if not group.is_public and not get_group_member(
+        db=db,
+        group_id=group_accumulator.group_id,
+        author_id=user_id,
+    ):
+        return {}
+
+    return {
+        "group_accumulator": BookmarkGroupAccumulatorDTO(
+            id=group_accumulator.id,
+            group_id=group_accumulator.group_id,
+            title=group_accumulator.title or "",
+            image=_generate_collection_image_url(group_accumulator.image_key),
+        )
+    }
+
+
 def _parse_source_uuid(source_id: str) -> Optional[UUID]:
     try:
         return UUID(source_id)
@@ -697,6 +741,12 @@ async def enrich_bookmark(
             db=db,
             source_id=bookmark.source_id,
             language=normalized_language,
+        )
+    if bookmark.type == BookmarkType.GROUP_ACCUMULATOR:
+        return enrich_group_accumulator_bookmark(
+            db=db,
+            source_id=bookmark.source_id,
+            user_id=bookmark.user_id,
         )
     if bookmark.type == BookmarkType.TIMER:
         return enrich_timer_bookmark(db=db, source_id=bookmark.source_id)
