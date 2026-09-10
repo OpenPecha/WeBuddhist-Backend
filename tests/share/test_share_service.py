@@ -526,18 +526,17 @@ def test_get_poem_image_bytes_converts_webp_to_jpeg():
         assert Image.open(io.BytesIO(image_bytes)).format == "JPEG"
 
 
-def test_get_poem_image_bytes_falls_back_to_stored_bytes_when_conversion_fails():
+@pytest.mark.parametrize("stored_bytes", [b"", b"not_an_image", _webp_bytes()[:20]])
+def test_get_poem_image_bytes_returns_none_for_unusable_webp(stored_bytes):
+    """Empty, corrupt or truncated bytes are not an image, so nothing is served."""
     poem_id = "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
     mock_poem = SimpleNamespace(image_key="images/poem_images/x/original/pic.webp", title="A Poem")
 
     with patch("pecha_api.share.share_service.SessionLocal"), \
          patch("pecha_api.share.share_service.get_poem_by_id", return_value=mock_poem), \
          patch("pecha_api.share.share_service.get", return_value="bucket"), \
-         patch("pecha_api.share.share_service.download_bytes", return_value=b"not_an_image"):
-        image_bytes, media_type = _get_poem_image_bytes_(poem_id)
-
-        assert image_bytes == b"not_an_image"
-        assert media_type == "image/webp"
+         patch("pecha_api.share.share_service.download_bytes", return_value=stored_bytes):
+        assert _get_poem_image_bytes_(poem_id) is None
 
 
 def test_get_poem_image_bytes_returns_none_when_download_fails():

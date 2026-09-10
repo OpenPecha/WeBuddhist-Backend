@@ -40,6 +40,8 @@ IMAGE_MEDIA_TYPES = {
     ".jpeg": JPEG_MEDIA_TYPE,
 }
 PNG_FORMAT = "PNG"
+JPEG_FORMAT = "JPEG"
+JPEG_QUALITY = 85
 DEFAULT_OG_TITLE = get("SITE_NAME")
 DEFAULT_OG_DESCRIPTION = get("SITE_NAME")
 PECHA_FRONTEND_ENDPOINT = "https://webuddhist.com/chapter"
@@ -79,15 +81,17 @@ def _get_poem_image_bytes_(poem_id: str) -> tuple[bytes, str] | None:
     media_type = IMAGE_MEDIA_TYPES.get(Path(image_key).suffix.lower(), WEBP_MEDIA_TYPE)
 
     # Uploads are stored as webp, which social crawlers unfurl unreliably, so
-    # serve a jpeg instead. A failed conversion falls back to the stored bytes.
+    # serve a jpeg instead. Bytes PIL cannot open are not a usable image at all,
+    # so they fall through to the neutral fallback rather than being served.
     if media_type == WEBP_MEDIA_TYPE:
         try:
             image = Image.open(io.BytesIO(image_bytes))
             converted = io.BytesIO()
-            image.convert("RGB").save(converted, format="JPEG", quality=85)
+            image.convert("RGB").save(converted, format=JPEG_FORMAT, quality=JPEG_QUALITY)
             return converted.getvalue(), JPEG_MEDIA_TYPE
         except (OSError, ValueError) as error:
             logging.warning(f"Could not convert poem image {image_key} to jpeg: {error}")
+            return None
 
     return image_bytes, media_type
 
