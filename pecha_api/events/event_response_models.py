@@ -9,7 +9,7 @@ from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.timezone_utils import normalize_timezone_name
 from .location_response_models import LocationDTO
-from .event_enums import RecurrenceFrequency, RecurrenceDateSystem
+from .event_enums import RecurrenceFrequency, RecurrenceDateSystem, EventLinkType
 
 
 EventFormat = Literal["online", "offline", "hybrid"]
@@ -34,6 +34,17 @@ class EventLinkDTO(BaseModel):
     type: str
     url: str
     label: Optional[str] = None
+    language: str
+    display_order: int
+
+
+class EventYoutubeDTO(BaseModel):
+    model_config = ConfigDict(ser_json_exclude_none=True)
+
+    id: UUID
+    url: str
+    label: Optional[str] = None
+    language: str
     display_order: int
 
 
@@ -44,23 +55,46 @@ def _validate_link_url(url: str) -> str:
     return url.strip()
 
 
+def _validate_youtube_url(url: str) -> str:
+    normalized = _validate_link_url(url)
+    host = urlparse(normalized).netloc.lower()
+    if host.startswith("www."):
+        host = host[4:]
+    if not (host == "youtube.com" or host.endswith(".youtube.com") or host == "youtu.be"):
+        raise ValueError("url must be a youtube.com or youtu.be URL")
+    return normalized
+
+
 class EventLinkInput(BaseModel):
-    type: str = Field(max_length=50)
+    type: EventLinkType
     url: str = Field(max_length=2000)
     label: Optional[str] = Field(default=None, max_length=255)
+    language: LanguageCode
     display_order: int = 1
 
     @field_validator("type")
     @classmethod
-    def validate_type_not_empty(cls, value: str) -> str:
-        if not value or not value.strip():
-            raise ValueError("type must be a non-empty string")
-        return value.strip()
+    def validate_type_not_youtube(cls, value: EventLinkType) -> EventLinkType:
+        if value == EventLinkType.YOUTUBE:
+            raise ValueError("type 'youtube' is not allowed in links[]; use the youtube[] array instead")
+        return value
 
     @field_validator("url")
     @classmethod
     def validate_url(cls, value: str) -> str:
         return _validate_link_url(value)
+
+
+class EventYoutubeInput(BaseModel):
+    url: str = Field(max_length=2000)
+    label: Optional[str] = Field(default=None, max_length=255)
+    language: LanguageCode
+    display_order: int = 1
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, value: str) -> str:
+        return _validate_youtube_url(value)
 
 
 class EventMetadataInput(BaseModel):
@@ -177,6 +211,7 @@ class EventDTO(BaseModel):
     )
     event_format: EventFormat = "hybrid"
     metadata: EventMetadataResponse
+    youtube: List[EventYoutubeDTO] = []
     links: List[EventLinkDTO] = []
     image: Optional[ImageUrlModel] = None
     image_url: Optional[str] = None
@@ -223,6 +258,7 @@ class CreateEventRequest(BaseModel):
     timezone: Optional[str] = None
     metadata: List[EventMetadataInput]
     links: List[EventLinkInput] = []
+    youtube: List[EventYoutubeInput] = []
     image_url: Optional[str] = None
     plan_id: Optional[UUID] = None
     series_id: Optional[UUID] = None
@@ -268,6 +304,7 @@ class UpdateEventRequest(BaseModel):
     timezone: Optional[str] = None
     metadata: Optional[List[EventMetadataInput]] = None
     links: Optional[List[EventLinkInput]] = None
+    youtube: Optional[List[EventYoutubeInput]] = None
     image_url: Optional[str] = None
     plan_id: Optional[UUID] = None
     series_id: Optional[UUID] = None

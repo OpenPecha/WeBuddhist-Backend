@@ -1,7 +1,7 @@
 """float display_order on recitation_collection_items
 
 Revision ID: r4c5d6e7f8a9
-Revises: np1a2b3c4d5e
+Revises: a2e952bd8fa8
 Create Date: 2026-09-10 16:10:00.000000
 
 Lets clients patch a single item to a fractional order (e.g. 1.4) so it can
@@ -16,7 +16,7 @@ import sqlalchemy as sa
 from migrations.idempotency import index_exists
 
 revision: str = "r4c5d6e7f8a9"
-down_revision: Union[str, None] = "np1a2b3c4d5e"
+down_revision: Union[str, None] = "a2e952bd8fa8"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

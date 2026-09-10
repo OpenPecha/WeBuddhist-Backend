@@ -1485,3 +1485,207 @@ async def test_enrich_bookmark_returns_empty_for_unknown_type():
 
     assert result == {}
 
+
+
+# --- GROUP_ACCUMULATOR bookmarks -------------------------------------------
+
+
+def _mock_group_accumulator(
+    group_accumulator_id: UUID,
+    group_id: UUID,
+    title: Optional[str],
+    image_key: Optional[str],
+) -> MagicMock:
+    mock_group_accumulator = MagicMock()
+    mock_group_accumulator.id = group_accumulator_id
+    mock_group_accumulator.group_id = group_id
+    mock_group_accumulator.title = title
+    mock_group_accumulator.image_key = image_key
+    return mock_group_accumulator
+
+
+def _db_returning_group_accumulator(group_accumulator) -> MagicMock:
+    db = MagicMock()
+    query_chain = MagicMock()
+    query_chain.filter.return_value = query_chain
+    query_chain.first.return_value = group_accumulator
+    db.query.return_value = query_chain
+    return db
+
+
+def test_enrich_group_accumulator_bookmark_success() -> None:
+    from pecha_api.bookmarks.bookmark_utils import enrich_group_accumulator_bookmark
+
+    group_accumulator_id = uuid4()
+    group_id = uuid4()
+    db = _db_returning_group_accumulator(
+        _mock_group_accumulator(
+            group_accumulator_id, group_id, "Group Mani", "group/mani.jpg"
+        )
+    )
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.get_group_by_id",
+        return_value=_mock_group(is_public=True),
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils._generate_collection_image_url",
+        return_value="https://cdn.example.com/mani.jpg",
+    ):
+        result = enrich_group_accumulator_bookmark(
+            db=db,
+            source_id=str(group_accumulator_id),
+            user_id=uuid4(),
+        )
+
+    dto = result["group_accumulator"]
+    assert dto.id == group_accumulator_id
+    assert dto.group_id == group_id
+    assert dto.title == "Group Mani"
+    assert dto.image == "https://cdn.example.com/mani.jpg"
+
+
+def test_enrich_group_accumulator_bookmark_allows_private_group_member() -> None:
+    from pecha_api.bookmarks.bookmark_utils import enrich_group_accumulator_bookmark
+
+    group_accumulator_id = uuid4()
+    user_id = uuid4()
+    db = _db_returning_group_accumulator(
+        _mock_group_accumulator(group_accumulator_id, uuid4(), "Private Mani", None)
+    )
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.get_group_by_id",
+        return_value=_mock_group(is_public=False),
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.get_group_member",
+        return_value=MagicMock(),
+    ) as mock_get_member, patch(
+        "pecha_api.bookmarks.bookmark_utils._generate_collection_image_url",
+        return_value=None,
+    ):
+        result = enrich_group_accumulator_bookmark(
+            db=db,
+            source_id=str(group_accumulator_id),
+            user_id=user_id,
+        )
+
+    assert mock_get_member.call_args.kwargs["author_id"] == user_id
+    assert result["group_accumulator"].id == group_accumulator_id
+
+
+def test_enrich_group_accumulator_bookmark_returns_empty_for_non_member() -> None:
+    from pecha_api.bookmarks.bookmark_utils import enrich_group_accumulator_bookmark
+
+    group_accumulator_id = uuid4()
+    db = _db_returning_group_accumulator(
+        _mock_group_accumulator(group_accumulator_id, uuid4(), "Private Mani", None)
+    )
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.get_group_by_id",
+        return_value=_mock_group(is_public=False),
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.get_group_member",
+        return_value=None,
+    ):
+        result = enrich_group_accumulator_bookmark(
+            db=db,
+            source_id=str(group_accumulator_id),
+            user_id=uuid4(),
+        )
+
+    assert result == {}
+
+
+def test_enrich_group_accumulator_bookmark_returns_empty_when_group_missing() -> None:
+    from pecha_api.bookmarks.bookmark_utils import enrich_group_accumulator_bookmark
+
+    group_accumulator_id = uuid4()
+    db = _db_returning_group_accumulator(
+        _mock_group_accumulator(group_accumulator_id, uuid4(), "Orphan Mani", None)
+    )
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.get_group_by_id",
+        return_value=None,
+    ):
+        result = enrich_group_accumulator_bookmark(
+            db=db,
+            source_id=str(group_accumulator_id),
+            user_id=uuid4(),
+        )
+
+    assert result == {}
+
+
+def test_enrich_group_accumulator_bookmark_returns_empty_when_missing() -> None:
+    from pecha_api.bookmarks.bookmark_utils import enrich_group_accumulator_bookmark
+
+    db = _db_returning_group_accumulator(None)
+
+    result = enrich_group_accumulator_bookmark(
+        db=db,
+        source_id=str(uuid4()),
+        user_id=uuid4(),
+    )
+
+    assert result == {}
+
+
+def test_enrich_group_accumulator_bookmark_returns_empty_for_non_uuid_source() -> None:
+    from pecha_api.bookmarks.bookmark_utils import enrich_group_accumulator_bookmark
+
+    db = MagicMock()
+
+    result = enrich_group_accumulator_bookmark(
+        db=db,
+        source_id="not-a-uuid",
+        user_id=uuid4(),
+    )
+
+    assert result == {}
+    db.query.assert_not_called()
+
+
+def test_enrich_group_accumulator_bookmark_defaults_missing_title() -> None:
+    """title is nullable on group_accumulators but required on the DTO."""
+    from pecha_api.bookmarks.bookmark_utils import enrich_group_accumulator_bookmark
+
+    group_accumulator_id = uuid4()
+    db = _db_returning_group_accumulator(
+        _mock_group_accumulator(group_accumulator_id, uuid4(), None, None)
+    )
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.get_group_by_id",
+        return_value=_mock_group(is_public=True),
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils._generate_collection_image_url",
+        return_value=None,
+    ):
+        result = enrich_group_accumulator_bookmark(
+            db=db,
+            source_id=str(group_accumulator_id),
+            user_id=uuid4(),
+        )
+
+    assert result["group_accumulator"].title == ""
+
+
+@pytest.mark.asyncio
+async def test_enrich_bookmark_dispatches_group_accumulator() -> None:
+    from pecha_api.bookmarks.bookmark_utils import enrich_bookmark
+
+    bookmark = MagicMock()
+    bookmark.type = BookmarkType.GROUP_ACCUMULATOR
+    bookmark.source_id = str(uuid4())
+    bookmark.user_id = uuid4()
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.enrich_group_accumulator_bookmark",
+        return_value={"group_accumulator": "sentinel"},
+    ) as mock_enrich:
+        result = await enrich_bookmark(bookmark=bookmark, db=MagicMock())
+
+    assert result == {"group_accumulator": "sentinel"}
+    assert mock_enrich.call_args.kwargs["user_id"] == bookmark.user_id
