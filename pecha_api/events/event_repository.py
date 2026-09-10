@@ -11,6 +11,7 @@ from starlette import status
 from .event_model import Event
 from .event_metadata_model import EventMetadata
 from .event_link_model import EventLink
+from .event_enums import EventLinkType
 from ..accumulator.accumulator_models import Accumulator
 from ..mantra.mantra_model import Mantra
 from ..plans.plans_models import Plan
@@ -35,9 +36,24 @@ def _persist_link_entries(db: Session, event_id: UUID, link_entries: List) -> No
         db.add(
             EventLink(
                 event_id=event_id,
-                type=entry.type,
+                type=entry.type.value,
                 url=entry.url,
                 label=entry.label,
+                language=entry.language,
+                display_order=entry.display_order,
+            )
+        )
+
+
+def _persist_youtube_entries(db: Session, event_id: UUID, youtube_entries: List) -> None:
+    for entry in youtube_entries:
+        db.add(
+            EventLink(
+                event_id=event_id,
+                type=EventLinkType.YOUTUBE.value,
+                url=entry.url,
+                label=entry.label,
+                language=entry.language,
                 display_order=entry.display_order,
             )
         )
@@ -48,6 +64,7 @@ def save_event(
     event: Event,
     metadata_entries: List,
     link_entries: Optional[List] = None,
+    youtube_entries: Optional[List] = None,
     after_flush: Optional[Callable[[Event], None]] = None,
 ) -> Event:
     """after_flush runs once event.id is populated and the row is visible
@@ -61,6 +78,7 @@ def save_event(
             after_flush(event)
         _persist_metadata_entries(db, event.id, metadata_entries)
         _persist_link_entries(db, event.id, link_entries or [])
+        _persist_youtube_entries(db, event.id, youtube_entries or [])
         db.commit()
         db.refresh(event)
         return get_event_by_id(db, event.id)
@@ -105,14 +123,24 @@ def update_event(
     event: Event,
     metadata_entries: Optional[List] = None,
     link_entries: Optional[List] = None,
+    youtube_entries: Optional[List] = None,
 ) -> Event:
     try:
         if metadata_entries is not None:
             db.query(EventMetadata).filter(EventMetadata.event_id == event.id).delete()
             _persist_metadata_entries(db, event.id, metadata_entries)
         if link_entries is not None:
-            db.query(EventLink).filter(EventLink.event_id == event.id).delete()
+            db.query(EventLink).filter(
+                EventLink.event_id == event.id,
+                EventLink.type != EventLinkType.YOUTUBE.value,
+            ).delete()
             _persist_link_entries(db, event.id, link_entries)
+        if youtube_entries is not None:
+            db.query(EventLink).filter(
+                EventLink.event_id == event.id,
+                EventLink.type == EventLinkType.YOUTUBE.value,
+            ).delete()
+            _persist_youtube_entries(db, event.id, youtube_entries)
         db.commit()
         db.refresh(event)
         return get_event_by_id(db, event.id)
