@@ -608,18 +608,39 @@ async def test_get_generated_image_falls_back_when_download_fails():
         assert Image.open(io.BytesIO(body)).format == "PNG"
 
 
-def test_get_poem_image_bytes_passes_through_non_webp():
+def _png_bytes() -> bytes:
+    buffer = io.BytesIO()
+    Image.new("RGB", (10, 10), color="blue").save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def test_get_poem_image_bytes_passes_through_valid_non_webp():
     poem_id = "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
     mock_poem = SimpleNamespace(image_key="images/poem_images/x/original/pic.png", title="A Poem")
+    png = _png_bytes()
 
     with patch("pecha_api.share.share_service.SessionLocal"), \
          patch("pecha_api.share.share_service.get_poem_by_id", return_value=mock_poem), \
          patch("pecha_api.share.share_service.get", return_value="bucket"), \
-         patch("pecha_api.share.share_service.download_bytes", return_value=b"png_bytes"):
+         patch("pecha_api.share.share_service.download_bytes", return_value=png):
         image_bytes, media_type = _get_poem_image_bytes_(poem_id)
 
-        assert image_bytes == b"png_bytes"
+        assert image_bytes == png
         assert media_type == "image/png"
+
+
+@pytest.mark.parametrize("suffix", ["pic.png", "pic.jpg", "pic.jpeg"])
+@pytest.mark.parametrize("stored_bytes", [b"", b"not_an_image", _png_bytes()[:20]])
+def test_get_poem_image_bytes_returns_none_for_unusable_non_webp(suffix, stored_bytes):
+    """PNG and JPEG objects are decoded too, not just webp."""
+    poem_id = "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
+    mock_poem = SimpleNamespace(image_key=f"images/poem_images/x/original/{suffix}", title="A Poem")
+
+    with patch("pecha_api.share.share_service.SessionLocal"), \
+         patch("pecha_api.share.share_service.get_poem_by_id", return_value=mock_poem), \
+         patch("pecha_api.share.share_service.get", return_value="bucket"), \
+         patch("pecha_api.share.share_service.download_bytes", return_value=stored_bytes):
+        assert _get_poem_image_bytes_(poem_id) is None
 
 
 def test_get_poem_image_bytes_returns_none_when_poem_has_no_image_key():

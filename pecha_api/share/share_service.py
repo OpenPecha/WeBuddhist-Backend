@@ -80,18 +80,21 @@ def _get_poem_image_bytes_(poem_id: str) -> tuple[bytes, str] | None:
 
     media_type = IMAGE_MEDIA_TYPES.get(Path(image_key).suffix.lower(), WEBP_MEDIA_TYPE)
 
-    # Uploads are stored as webp, which social crawlers unfurl unreliably, so
-    # serve a jpeg instead. Bytes PIL cannot open are not a usable image at all,
-    # so they fall through to the neutral fallback rather than being served.
-    if media_type == WEBP_MEDIA_TYPE:
-        try:
-            image = Image.open(io.BytesIO(image_bytes))
+    # Every stored object is decoded before being served: bytes PIL cannot open
+    # are not a usable image, so they fall through to the neutral fallback.
+    # Webp is additionally re-encoded, as social crawlers unfurl it unreliably.
+    try:
+        image = Image.open(io.BytesIO(image_bytes))
+        image.verify()
+        if media_type == WEBP_MEDIA_TYPE:
             converted = io.BytesIO()
-            image.convert("RGB").save(converted, format=JPEG_FORMAT, quality=JPEG_QUALITY)
+            Image.open(io.BytesIO(image_bytes)).convert("RGB").save(
+                converted, format=JPEG_FORMAT, quality=JPEG_QUALITY
+            )
             return converted.getvalue(), JPEG_MEDIA_TYPE
-        except (OSError, ValueError) as error:
-            logging.warning(f"Could not convert poem image {image_key} to jpeg: {error}")
-            return None
+    except (OSError, ValueError) as error:
+        logging.warning(f"Poem image {image_key} is not a usable image: {error}")
+        return None
 
     return image_bytes, media_type
 
