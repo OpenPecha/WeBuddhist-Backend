@@ -38,6 +38,7 @@ from pecha_api.plans.shared.permissions import (
 from pecha_api.users.users_service import validate_and_extract_user_details
 
 from .event_model import Event
+from .event_enums import EventLinkType
 from .event_response_models import (
     CreateEventRequest,
     UpdateEventRequest,
@@ -45,6 +46,7 @@ from .event_response_models import (
     EventFormat,
     EventMetadataDTO,
     EventLinkDTO,
+    EventYoutubeDTO,
     EventsResponse,
     LinkedResourceDTO,
     RecurrenceDTO,
@@ -134,18 +136,60 @@ def _metadata_response(entries, language: Optional[str] = None, fallback: bool =
     )
 
 
-def _links_to_dtos(links: Optional[List]) -> List[EventLinkDTO]:
-    if not links:
+def _is_youtube_link(link) -> bool:
+    return (link.type or "").strip().lower() == EventLinkType.YOUTUBE.value
+
+
+def _filter_link_entries(entries: List, language: Optional[str] = None, fallback: bool = False) -> List:
+    if not entries:
         return []
+    if fallback:
+        return filter_by_language_with_fallback(
+            entries=list(entries),
+            language=language,
+            language_of=lambda entry: _language_value(entry.language),
+        )
+    if language:
+        language_upper = language.upper()
+        return [
+            entry for entry in entries
+            if _language_value(entry.language).upper() == language_upper
+        ]
+    return list(entries)
+
+
+def _links_to_dtos(
+    links: Optional[List], language: Optional[str] = None, fallback: bool = False
+) -> List[EventLinkDTO]:
+    other_entries = [link for link in (links or []) if not _is_youtube_link(link)]
+    filtered = _filter_link_entries(other_entries, language=language, fallback=fallback)
     return [
         EventLinkDTO(
             id=link.id,
             type=link.type,
             url=link.url,
             label=link.label,
+            language=_language_value(link.language),
             display_order=link.display_order,
         )
-        for link in sorted(links, key=lambda link: link.display_order)
+        for link in sorted(filtered, key=lambda link: link.display_order)
+    ]
+
+
+def _youtube_to_dtos(
+    links: Optional[List], language: Optional[str] = None, fallback: bool = False
+) -> List[EventYoutubeDTO]:
+    youtube_entries = [link for link in (links or []) if _is_youtube_link(link)]
+    filtered = _filter_link_entries(youtube_entries, language=language, fallback=fallback)
+    return [
+        EventYoutubeDTO(
+            id=link.id,
+            url=link.url,
+            label=link.label,
+            language=_language_value(link.language),
+            display_order=link.display_order,
+        )
+        for link in sorted(filtered, key=lambda link: link.display_order)
     ]
 
 
@@ -351,7 +395,8 @@ def _event_to_dto(
         metadata=_metadata_response(
             event.metadata_entries, language=language, fallback=fallback
         ),
-        links=_links_to_dtos(event.links),
+        youtube=_youtube_to_dtos(event.links, language=language, fallback=fallback),
+        links=_links_to_dtos(event.links, language=language, fallback=fallback),
         image=safe_get_image_url(
             event.image_url, resource_id=event.id, resource_type="event"
         ),
@@ -783,6 +828,7 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
 
         saved = save_event(
             db, event, request.metadata, request.links,
+            youtube_entries=request.youtube,
             after_flush=_schedule_reminders_after_flush,
         )
         enqueue_event_notification(saved.id)
@@ -948,7 +994,12 @@ def update_event_service(token: str, event_id: UUID, request: UpdateEventRequest
         # stale/canceled against an unchanged event.
         _sync_event_reminders(db, event, should_cancel_reminders, should_reschedule_reminders)
 
-        saved = update_event(db, event, metadata_entries=request.metadata, link_entries=request.links)
+        saved = update_event(
+            db, event,
+            metadata_entries=request.metadata,
+            link_entries=request.links,
+            youtube_entries=request.youtube,
+        )
         return _event_to_dto(saved)
 
 

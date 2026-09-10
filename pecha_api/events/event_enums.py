@@ -10,3 +10,11 @@ class RecurrenceFrequency(str, Enum):
 class RecurrenceDateSystem(str, Enum):
     GREGORIAN = "GREGORIAN"
     TIBETAN_LUNAR = "TIBETAN_LUNAR"
+
+
+class EventLinkType(str, Enum):
+    WEB = "web"
+    GOOGLE_MEET = "google-meet"
+    ZOOM = "zoom"
+    VIDEO = "video"
+    YOUTUBE = "youtube"
