@@ -68,10 +68,11 @@ def _get_poem_image_bytes_(poem_id: str) -> tuple[bytes, str] | None:
 
     try:
         image_bytes = download_bytes(bucket_name=get("AWS_BUCKET_NAME"), s3_key=image_key)
-    except HTTPException as error:
-        # A missing or unreadable object must fall back to the generated image
-        # rather than failing the crawler's request.
-        logging.warning(f"Could not download poem image {image_key}: {error.detail}")
+    except Exception as error:
+        # download_bytes only converts ClientError, so transport, timeout and
+        # credential failures surface raw. Any of them must fall back to the
+        # generated image rather than failing the crawler's request.
+        logging.warning(f"Could not download poem image {image_key}: {error}")
         return None
 
     media_type = IMAGE_MEDIA_TYPES.get(Path(image_key).suffix.lower(), WEBP_MEDIA_TYPE)
@@ -93,7 +94,12 @@ def _get_poem_image_bytes_(poem_id: str) -> tuple[bytes, str] | None:
 async def get_generated_image(poem_id: str | None = None):
     try:
         if poem_id is not None:
-            poem_image = await anyio.to_thread.run_sync(_get_poem_image_bytes_, poem_id)
+            try:
+                poem_image = await anyio.to_thread.run_sync(_get_poem_image_bytes_, poem_id)
+            except Exception as error:
+                # A database failure here must still yield an image to the crawler.
+                logging.warning(f"Could not resolve poem image for {poem_id}: {error}")
+                poem_image = None
             if poem_image is not None:
                 image_bytes, media_type = poem_image
                 return StreamingResponse(io.BytesIO(image_bytes), media_type=media_type)

@@ -507,6 +507,40 @@ def test_get_poem_image_bytes_returns_none_when_download_fails():
         assert _get_poem_image_bytes_(poem_id) is None
 
 
+@pytest.mark.parametrize("failure", [
+    ConnectionError("endpoint unreachable"),
+    TimeoutError("read timed out"),
+    RuntimeError("no credentials"),
+])
+def test_get_poem_image_bytes_returns_none_on_transport_failures(failure):
+    """download_bytes only converts ClientError; everything else surfaces raw."""
+    poem_id = "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
+    mock_poem = SimpleNamespace(image_key="images/poem_images/x/original/pic.webp", title="A Poem")
+
+    with patch("pecha_api.share.share_service.SessionLocal"), \
+         patch("pecha_api.share.share_service.get_poem_by_id", return_value=mock_poem), \
+         patch("pecha_api.share.share_service.get", return_value="bucket"), \
+         patch("pecha_api.share.share_service.download_bytes", side_effect=failure):
+        assert _get_poem_image_bytes_(poem_id) is None
+
+
+@pytest.mark.asyncio
+async def test_get_generated_image_falls_back_when_poem_lookup_raises():
+    """A database failure must still yield the fallback image, not a 500."""
+    with patch("pecha_api.share.share_service._get_poem_image_bytes_", side_effect=RuntimeError("db down")), \
+         patch("anyio.open_file", new_callable=AsyncMock) as mock_open_file:
+        mock_file = AsyncMock()
+        mock_file.read.return_value = b"fallback_image"
+        cm = AsyncMock()
+        cm.__aenter__.return_value = mock_file
+        mock_open_file.return_value = cm
+
+        response = await get_generated_image(poem_id="3f2504e0-4f89-11d3-9a0c-0305e82c3301")
+
+        body = b"".join([chunk async for chunk in response.body_iterator])
+        assert body == b"fallback_image"
+
+
 @pytest.mark.asyncio
 async def test_get_generated_image_falls_back_when_download_fails():
     with patch("pecha_api.share.share_service._get_poem_image_bytes_", return_value=None), \
