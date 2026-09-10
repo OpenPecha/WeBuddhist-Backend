@@ -19,9 +19,10 @@ share_router = APIRouter(
 
 @share_router.get("/image", status_code=status.HTTP_200_OK)
 async def get_image(
-    segment_id: Optional[str] = Query(default=None)
+    segment_id: Optional[str] = Query(default=None),
+    poem_id: Optional[str] = Query(default=None)
 ):
-    return await get_generated_image()
+    return await get_generated_image(poem_id=poem_id)
 
 @share_router.post("", status_code=status.HTTP_201_CREATED)
 async def get_short_url(share_request: ShareRequest) -> ShortUrlResponse:
