@@ -66,7 +66,14 @@ def _get_poem_image_bytes_(poem_id: str) -> tuple[bytes, str] | None:
             return None
         image_key = poem.image_key
 
-    image_bytes = download_bytes(bucket_name=get("AWS_BUCKET_NAME"), s3_key=image_key)
+    try:
+        image_bytes = download_bytes(bucket_name=get("AWS_BUCKET_NAME"), s3_key=image_key)
+    except HTTPException as error:
+        # A missing or unreadable object must fall back to the generated image
+        # rather than failing the crawler's request.
+        logging.warning(f"Could not download poem image {image_key}: {error.detail}")
+        return None
+
     media_type = IMAGE_MEDIA_TYPES.get(Path(image_key).suffix.lower(), WEBP_MEDIA_TYPE)
 
     # Uploads are stored as webp, which social crawlers unfurl unreliably, so
@@ -108,6 +115,14 @@ async def generate_short_url(share_request: ShareRequest) -> ShortUrlResponse:
     if share_request.poem_id is None:
         share_request.poem_id = _extract_poem_id_from_url_(share_request.url)
 
+    # An id that resolves to no published poem is treated as not a poem at all,
+    # so the share still falls back to the generated image.
+    poem_title = None
+    if share_request.poem_id is not None:
+        poem_title = await anyio.to_thread.run_sync(_get_poem_title_, share_request.poem_id)
+        if poem_title is None:
+            share_request.poem_id = None
+
     if share_request.logo:
         _generate_logo_image_(share_request=share_request)
 
@@ -115,7 +130,11 @@ async def generate_short_url(share_request: ShareRequest) -> ShortUrlResponse:
     if share_request.poem_id is None:
         await _generate_segment_content_image_(share_request=share_request)
 
-    payload = _generate_short_url_payload_(share_request=share_request, og_description=og_description)
+    payload = _generate_short_url_payload_(
+        share_request=share_request,
+        og_description=og_description,
+        poem_title=poem_title,
+    )
     short_url: ShortUrlResponse = await get_short_url(payload=payload)
 
     return short_url
@@ -156,7 +175,7 @@ async def _generate_segment_content_image_(share_request: ShareRequest):
 
 
 
-def _generate_short_url_payload_(share_request: ShareRequest, og_description: str) -> dict:
+def _generate_short_url_payload_(share_request: ShareRequest, og_description: str, poem_title: str | None = None) -> dict:
 
     if share_request.url is None:
         share_request.url = _generate_url_(
@@ -171,7 +190,6 @@ def _generate_short_url_payload_(share_request: ShareRequest, og_description: st
     if share_request.poem_id is not None:
         # Resolved per request, so unlike a presigned s3 url it never expires.
         image_url = f"{pecha_backend_endpoint}/share/image?poem_id={share_request.poem_id}"
-        poem_title = _get_poem_title_(poem_id=share_request.poem_id)
         if poem_title:
             og_title = poem_title[:OG_TITLE_MAX_LENGTH]
     elif share_request.segment_id is not None:

@@ -348,11 +348,12 @@ def test_generate_short_url_payload_for_poem():
         tags="tag1"
     )
 
-    with patch("pecha_api.share.share_service.get") as mock_get, \
-         patch("pecha_api.share.share_service._get_poem_title_", return_value="Song to Sebän Repa"):
+    with patch("pecha_api.share.share_service.get") as mock_get:
         mock_get.return_value = "https://backend.example.com"
 
-        payload = _generate_short_url_payload_(share_request, "Test description")
+        payload = _generate_short_url_payload_(
+            share_request, "Test description", poem_title="Song to Sebän Repa"
+        )
 
         assert payload["og_image"] == f"https://backend.example.com/share/image?poem_id={poem_id}"
         assert payload["og_title"] == "Song to Sebän Repa"
@@ -366,6 +367,7 @@ async def test_generate_short_url_for_poem_skips_image_generation():
 
     with patch("pecha_api.share.share_service.get_short_url", new_callable=AsyncMock, return_value=mock_short_url_response), \
          patch("pecha_api.share.share_service._get_poem_title_", return_value="Song to Sebän Repa"), \
+         patch("pecha_api.share.share_service.get", return_value="https://backend.example.com"), \
          patch("pecha_api.share.share_service.generate_segment_image") as mock_generate_image:
 
         response = await generate_short_url(share_request=share_request)
@@ -375,6 +377,42 @@ async def test_generate_short_url_for_poem_skips_image_generation():
         mock_generate_image.assert_not_called()
         # The poem id is recovered from the url even though the app never sends the field.
         assert share_request.poem_id == poem_id
+
+
+@pytest.mark.asyncio
+async def test_generate_short_url_falls_back_when_poem_does_not_resolve():
+    """An unpublished or unknown poem id must not suppress image generation."""
+    poem_id = "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
+    share_request = ShareRequest(
+        url=f"https://webuddhist.com/open/poem/{poem_id}",
+        text_id="text_1",
+        language="en",
+    )
+    mock_text_detail = TextDTO(
+        id="text_1",
+        title="Test Title",
+        language="en",
+        type="version",
+        group_id="group_1",
+        is_published=True,
+        created_date="2021-01-01",
+        updated_date="2021-01-01",
+        published_date="2021-01-01",
+        published_by="user_1",
+        categories=[],
+        views=0
+    )
+
+    with patch("pecha_api.share.share_service.get_short_url", new_callable=AsyncMock, return_value=ShortUrlResponse(shortUrl="https://wb.pub/x")), \
+         patch("pecha_api.share.share_service._get_poem_title_", return_value=None), \
+         patch("pecha_api.share.share_service.get_text_by_id_from_openpecha", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.share.share_service.generate_segment_image") as mock_generate_image:
+
+        await generate_short_url(share_request=share_request)
+
+        # Falling back means the generated image is produced, not a stale output.png.
+        mock_generate_image.assert_called()
+        assert share_request.poem_id is None
 
 
 @pytest.mark.asyncio
@@ -457,6 +495,34 @@ def test_get_poem_image_bytes_falls_back_to_stored_bytes_when_conversion_fails()
         assert media_type == "image/webp"
 
 
+def test_get_poem_image_bytes_returns_none_when_download_fails():
+    """A missing S3 object must fall back to the generated image, not error."""
+    poem_id = "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
+    mock_poem = SimpleNamespace(image_key="images/poem_images/x/original/pic.webp", title="A Poem")
+
+    with patch("pecha_api.share.share_service.SessionLocal"), \
+         patch("pecha_api.share.share_service.get_poem_by_id", return_value=mock_poem), \
+         patch("pecha_api.share.share_service.get", return_value="bucket"), \
+         patch("pecha_api.share.share_service.download_bytes", side_effect=HTTPException(status_code=400, detail="Failed to download file from S3.")):
+        assert _get_poem_image_bytes_(poem_id) is None
+
+
+@pytest.mark.asyncio
+async def test_get_generated_image_falls_back_when_download_fails():
+    with patch("pecha_api.share.share_service._get_poem_image_bytes_", return_value=None), \
+         patch("anyio.open_file", new_callable=AsyncMock) as mock_open_file:
+        mock_file = AsyncMock()
+        mock_file.read.return_value = b"fallback_image"
+        cm = AsyncMock()
+        cm.__aenter__.return_value = mock_file
+        mock_open_file.return_value = cm
+
+        response = await get_generated_image(poem_id="3f2504e0-4f89-11d3-9a0c-0305e82c3301")
+
+        body = b"".join([chunk async for chunk in response.body_iterator])
+        assert body == b"fallback_image"
+
+
 def test_get_poem_image_bytes_passes_through_non_webp():
     poem_id = "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
     mock_poem = SimpleNamespace(image_key="images/poem_images/x/original/pic.png", title="A Poem")
@@ -485,9 +551,10 @@ def test_generate_short_url_payload_truncates_long_poem_title():
     share_request = ShareRequest(url=f"https://webuddhist.com/open/poem/{poem_id}", poem_id=poem_id)
     long_title = "A" * 260
 
-    with patch("pecha_api.share.share_service.get", return_value="https://backend.example.com"), \
-         patch("pecha_api.share.share_service._get_poem_title_", return_value=long_title):
-        payload = _generate_short_url_payload_(share_request, "Test description")
+    with patch("pecha_api.share.share_service.get", return_value="https://backend.example.com"):
+        payload = _generate_short_url_payload_(
+            share_request, "Test description", poem_title=long_title
+        )
 
         # The shortener stores og_title in a varchar(200); a longer value errors the share.
         assert len(payload["og_title"]) == 200
