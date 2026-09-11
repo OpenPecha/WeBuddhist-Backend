@@ -4,7 +4,7 @@ import logging
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 from starlette import status
-from typing import List, Dict, Optional
+from typing import List, Dict, NoReturn, Optional
 from uuid import UUID
 
 from pecha_api.config import TIME_FORMAT_PATTERN, get
@@ -186,58 +186,46 @@ def _time_block_dto(
     )
 
 
+def _raise_unprocessable(message: str) -> NoReturn:
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail=ResponseError(error=BAD_REQUEST, message=message).model_dump(),
+    )
+
+
+# Session types that report a type-specific message when source_id is missing;
+# everything else falls back to SOURCE_ID_REQUIRED.
+_MISSING_SOURCE_ID_MESSAGES = {
+    SessionType.ACCUMULATOR: ACCUMULATOR_ID_REQUIRED,
+    SessionType.GROUP_ACCUMULATOR: GROUP_ACCUMULATOR_ID_REQUIRED,
+}
+
+
+def _validate_session_source(session: SessionRequest) -> None:
+    """TIMER sessions carry a positive duration_ms; every other type carries a
+    source_id."""
+    if session.session_type == SessionType.TIMER:
+        if session.duration_ms is None or session.duration_ms <= 0:
+            _raise_unprocessable(INVALID_TIMER_DURATION)
+        return
+
+    if session.source_id is None:
+        _raise_unprocessable(
+            _MISSING_SOURCE_ID_MESSAGES.get(session.session_type, SOURCE_ID_REQUIRED)
+        )
+
+
 def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
     # At least one session required
     if not request.sessions:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=ResponseError(
-                error=BAD_REQUEST, message=SESSIONS_REQUIRED
-            ).model_dump(),
-        )
+        _raise_unprocessable(SESSIONS_REQUIRED)
 
     # Time must be valid HH:MM 24-hour format
     if not TIME_FORMAT_PATTERN.match(request.time):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=ResponseError(
-                error=BAD_REQUEST, message=INVALID_TIME_FORMAT
-            ).model_dump(),
-        )
+        _raise_unprocessable(INVALID_TIME_FORMAT)
 
-    # TIMER sessions carry a positive duration_ms; PLAN/SERIES/RECITATION carry a source_id
     for session in request.sessions:
-        if session.session_type == SessionType.TIMER:
-            if session.duration_ms is None or session.duration_ms <= 0:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=ResponseError(
-                        error=BAD_REQUEST, message=INVALID_TIMER_DURATION
-                    ).model_dump(),
-                )
-        elif session.session_type == SessionType.ACCUMULATOR:
-            if session.source_id is None:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=ResponseError(
-                        error=BAD_REQUEST, message=ACCUMULATOR_ID_REQUIRED
-                    ).model_dump(),
-                )
-        elif session.session_type == SessionType.GROUP_ACCUMULATOR:
-            if session.source_id is None:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=ResponseError(
-                        error=BAD_REQUEST, message=GROUP_ACCUMULATOR_ID_REQUIRED
-                    ).model_dump(),
-                )
-        elif session.source_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=ResponseError(
-                    error=BAD_REQUEST, message=SOURCE_ID_REQUIRED
-            ).model_dump(),
-        )
+        _validate_session_source(session)
 
     _validate_session_uniqueness(request.sessions)
 
