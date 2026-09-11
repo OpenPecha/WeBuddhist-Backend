@@ -17,7 +17,9 @@ share_router = APIRouter(
     tags=["Share"]
 )
 
-@share_router.get("/image", status_code=status.HTTP_200_OK)
+# Social crawlers send HEAD to check an image before fetching it; a GET-only
+# route answers 405 and the crawler then shows no preview image at all.
+@share_router.api_route("/image", methods=["GET", "HEAD"], status_code=status.HTTP_200_OK)
 async def get_image(
     segment_id: Optional[str] = Query(default=None),
     poem_id: Optional[str] = Query(default=None)

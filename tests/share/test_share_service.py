@@ -4,7 +4,7 @@ import pytest
 import io
 from PIL import Image
 from fastapi import HTTPException
-from starlette.responses import StreamingResponse
+from starlette.responses import Response
 
 from pecha_api.share.share_service import (
     generate_short_url,
@@ -42,7 +42,7 @@ async def test_get_generated_image_success():
         
         response = await get_generated_image()
         
-        assert isinstance(response, StreamingResponse)
+        assert isinstance(response, Response)
         assert response.media_type == "image/png"
 
 
@@ -469,12 +469,9 @@ async def test_get_generated_image_returns_distinct_image_per_poem():
         response_one = await get_generated_image(poem_id=poem_one)
         response_two = await get_generated_image(poem_id=poem_two)
 
-        async def read_body(response):
-            return b"".join([chunk async for chunk in response.body_iterator])
-
-        assert isinstance(response_one, StreamingResponse)
-        assert await read_body(response_one) == b"poem_one_image"
-        assert await read_body(response_two) == b"poem_two_image"
+        assert isinstance(response_one, Response)
+        assert response_one.body == b"poem_one_image"
+        assert response_two.body == b"poem_two_image"
         assert response_one.media_type == "image/webp"
 
 
@@ -490,7 +487,7 @@ async def test_get_generated_image_falls_back_when_poem_has_no_image():
 
         response = await get_generated_image(poem_id="3f2504e0-4f89-11d3-9a0c-0305e82c3301")
 
-        assert isinstance(response, StreamingResponse)
+        assert isinstance(response, Response)
         assert response.media_type == "image/png"
 
 
@@ -568,7 +565,7 @@ async def test_get_generated_image_falls_back_when_poem_lookup_raises():
     with patch("pecha_api.share.share_service._get_poem_image_bytes_", side_effect=RuntimeError("db down")):
         response = await get_generated_image(poem_id="3f2504e0-4f89-11d3-9a0c-0305e82c3301")
 
-        body = b"".join([chunk async for chunk in response.body_iterator])
+        body = response.body
         assert Image.open(io.BytesIO(body)).format == "PNG"
 
 
@@ -582,7 +579,7 @@ async def test_poem_fallback_never_serves_the_shared_output_png():
         # The shared, mutable output.png is never read on the poem path.
         mock_open_file.assert_not_called()
 
-        body = b"".join([chunk async for chunk in response.body_iterator])
+        body = response.body
         assert Image.open(io.BytesIO(body)).size == (1200, 630)
 
 
@@ -598,7 +595,7 @@ async def test_get_generated_image_falls_back_when_download_fails():
     with patch("pecha_api.share.share_service._get_poem_image_bytes_", return_value=None):
         response = await get_generated_image(poem_id="3f2504e0-4f89-11d3-9a0c-0305e82c3301")
 
-        body = b"".join([chunk async for chunk in response.body_iterator])
+        body = response.body
         assert Image.open(io.BytesIO(body)).format == "PNG"
 
 

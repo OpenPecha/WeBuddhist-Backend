@@ -6,7 +6,7 @@ from pathlib import Path
 from uuid import UUID
 from PIL import Image
 from pecha_api.error_contants import ErrorConstants
-from starlette.responses import StreamingResponse
+from starlette.responses import Response
 from .pecha_text_image_generator import generate_segment_image
 from .pecha_text_image_generator_config import CONFIG
 from pecha_api.texts.segments.segments_openpecha_service import get_openpecha_segment_details_by_id
@@ -99,7 +99,17 @@ def _get_poem_image_bytes_(poem_id: str) -> tuple[bytes, str] | None:
     return image_bytes, media_type
 
 
-def _generate_fallback_logo_image_() -> StreamingResponse:
+def _image_response_(image_bytes: bytes, media_type: str) -> Response:
+    # A plain Response sets content-length; a streamed one is chunked, and
+    # crawlers need the size from the HEAD request they send before fetching.
+    return Response(
+        content=image_bytes,
+        media_type=media_type,
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+def _generate_fallback_logo_image_() -> Response:
     """Build a branded image in memory, never touching the shared output.png."""
     width = CONFIG["FALLBACK_IMAGE_WIDTH"]
     height = CONFIG["FALLBACK_IMAGE_HEIGHT"]
@@ -118,8 +128,7 @@ def _generate_fallback_logo_image_() -> StreamingResponse:
 
     buffer = io.BytesIO()
     image.save(buffer, format=PNG_FORMAT)
-    buffer.seek(0)
-    return StreamingResponse(buffer, media_type=MEDIA_TYPE)
+    return _image_response_(buffer.getvalue(), MEDIA_TYPE)
 
 
 async def get_generated_image(poem_id: str | None = None):
@@ -133,7 +142,7 @@ async def get_generated_image(poem_id: str | None = None):
                 poem_image = None
             if poem_image is not None:
                 image_bytes, media_type = poem_image
-                return StreamingResponse(io.BytesIO(image_bytes), media_type=media_type)
+                return _image_response_(image_bytes, media_type)
 
             # output.png is shared and mutable, so it may hold another share's
             # image. A poem that fails here gets a neutral logo image instead.
@@ -143,7 +152,7 @@ async def get_generated_image(poem_id: str | None = None):
         async with await anyio.open_file(image_path, "rb") as file:
             image_bytes = await file.read()
 
-        return StreamingResponse(io.BytesIO(image_bytes), media_type=MEDIA_TYPE)
+        return _image_response_(image_bytes, MEDIA_TYPE)
 
     except HTTPException as error:
         raise HTTPException(
