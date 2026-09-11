@@ -864,11 +864,12 @@ def test_get_task_plan_returns_the_plan_behind_a_task():
 
 def test_get_task_plan_404s_when_the_day_is_missing():
     task = SimpleNamespace(id=uuid.uuid4(), plan_item_id=uuid.uuid4())
+    db = MagicMock()
 
-    with patch(f"{SERVICE}.get_plan_item_by_id", return_value=None), \
-         patch(f"{SERVICE}.get_plan_by_id") as mock_plan:
-        with pytest.raises(HTTPException) as exc:
-            _get_task_plan(db=MagicMock(), task=task)
+    with patch(f"{SERVICE}.get_plan_item_by_id", return_value=None), patch(
+        f"{SERVICE}.get_plan_by_id"
+    ) as mock_plan, pytest.raises(HTTPException) as exc:
+        _get_task_plan(db=db, task=task)
 
     assert exc.value.status_code == 404
     assert mock_plan.call_count == 0
@@ -877,11 +878,12 @@ def test_get_task_plan_404s_when_the_day_is_missing():
 def test_get_task_plan_404s_when_the_plan_is_missing():
     plan_item = SimpleNamespace(id=uuid.uuid4(), plan_id=uuid.uuid4())
     task = SimpleNamespace(id=uuid.uuid4(), plan_item_id=plan_item.id)
+    db = MagicMock()
 
-    with patch(f"{SERVICE}.get_plan_item_by_id", return_value=plan_item), \
-         patch(f"{SERVICE}.get_plan_by_id", return_value=None):
-        with pytest.raises(HTTPException) as exc:
-            _get_task_plan(db=MagicMock(), task=task)
+    with patch(f"{SERVICE}.get_plan_item_by_id", return_value=plan_item), patch(
+        f"{SERVICE}.get_plan_by_id", return_value=None
+    ), pytest.raises(HTTPException) as exc:
+        _get_task_plan(db=db, task=task)
 
     assert exc.value.status_code == 404
 
@@ -909,15 +911,13 @@ def test_validate_subtasks_checks_every_subtask_against_the_plans_group():
 def test_validate_subtasks_propagates_a_rejection():
     plan = SimpleNamespace(id=uuid.uuid4(), group_id=uuid.uuid4())
     sub_task = SimpleNamespace(content_type="POST", content=None, reference_id=uuid.uuid4())
+    db = MagicMock()
+    rejection = HTTPException(status_code=400, detail="nope")
 
     with patch(
-        f"{SERVICE}.validate_subtask_reference",
-        side_effect=HTTPException(status_code=400, detail="nope"),
-    ):
-        with pytest.raises(HTTPException) as exc:
-            _validate_subtasks(
-                db=MagicMock(), plan=plan, sub_tasks=[sub_task]
-            )
+        f"{SERVICE}.validate_subtask_reference", side_effect=rejection
+    ), pytest.raises(HTTPException) as exc:
+        _validate_subtasks(db=db, plan=plan, sub_tasks=[sub_task])
 
     assert exc.value.status_code == 400
 
@@ -940,9 +940,10 @@ def test_reject_foreign_sub_task_ids_rejects_an_id_from_another_task():
     own_id = uuid.uuid4()
     foreign_id = uuid.uuid4()
     requested = [SimpleNamespace(id=own_id), SimpleNamespace(id=foreign_id)]
+    allowed_ids = [own_id]
 
     with pytest.raises(HTTPException) as exc:
-        _reject_foreign_sub_task_ids(requested=requested, allowed_ids=[own_id])
+        _reject_foreign_sub_task_ids(requested=requested, allowed_ids=allowed_ids)
 
     assert exc.value.status_code == 400
     assert exc.value.detail["message"] == SUBTASK_NOT_IN_TASK
@@ -1049,10 +1050,12 @@ async def test_update_sub_task_scopes_the_bulk_update_to_the_authorized_task():
 def test_validate_subtasks_rejects_an_inline_subtask_without_content():
     plan = SimpleNamespace(id=uuid.uuid4(), group_id=uuid.uuid4())
     sub_task = SimpleNamespace(content_type="TEXT", content=None, reference_id=None)
+    db = MagicMock()
 
-    with patch(f"{SERVICE}.validate_subtask_reference") as mock_reference:
-        with pytest.raises(HTTPException) as exc:
-            _validate_subtasks(db=MagicMock(), plan=plan, sub_tasks=[sub_task])
+    with patch(
+        f"{SERVICE}.validate_subtask_reference"
+    ) as mock_reference, pytest.raises(HTTPException) as exc:
+        _validate_subtasks(db=db, plan=plan, sub_tasks=[sub_task])
 
     assert exc.value.status_code == 400
     assert exc.value.detail["message"] == CONTENT_REQUIRED

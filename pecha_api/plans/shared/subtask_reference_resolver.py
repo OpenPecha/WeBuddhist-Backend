@@ -65,14 +65,12 @@ def _pick_metadata(entries, language):
     enum), so it goes through the same unwrapping as the stored value.
     """
     entries = list(entries or [])
-    if not entries:
-        return None
     wanted = (_language_value(language) or "").upper()
     if wanted:
         for entry in entries:
             if (_language_value(entry.language) or "").upper() == wanted:
                 return entry
-    return entries[0]
+    return next(iter(entries), None)
 
 
 def _truncate(value: Optional[str], limit: int = 120) -> Optional[str]:

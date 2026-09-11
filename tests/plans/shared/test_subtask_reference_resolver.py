@@ -170,58 +170,70 @@ def test_validate_accepts_a_target_in_the_plans_group():
 def test_validate_rejects_a_target_owned_by_another_group():
     reference_id = uuid.uuid4()
     other_group_id = uuid.uuid4()
+    plan_group_id = uuid.uuid4()
+    db = MagicMock()
 
     loaders = {
-        ContentType.EVENT: lambda db, ids, language: {
+        ContentType.EVENT: lambda db_, ids, language: {
             reference_id: _reference(reference_id, ContentType.EVENT, other_group_id)
         }
     }
 
-    with patch.dict(f"{MODULE}._LOADERS", loaders):
-        with pytest.raises(HTTPException) as exc:
-            validate_subtask_reference(
-                db=MagicMock(),
-                content_type=ContentType.EVENT,
-                reference_id=reference_id,
-                group_id=uuid.uuid4(),
-            )
+    with patch.dict(f"{MODULE}._LOADERS", loaders), pytest.raises(HTTPException) as exc:
+        validate_subtask_reference(
+            db=db,
+            content_type=ContentType.EVENT,
+            reference_id=reference_id,
+            group_id=plan_group_id,
+        )
 
     assert exc.value.status_code == 400
     assert exc.value.detail["message"] == REFERENCE_NOT_FOUND
 
 
 def test_validate_rejects_a_missing_target():
-    with patch.dict(f"{MODULE}._LOADERS", {ContentType.POST: lambda db, ids, language: {}}):
-        with pytest.raises(HTTPException) as exc:
-            validate_subtask_reference(
-                db=MagicMock(),
-                content_type=ContentType.POST,
-                reference_id=uuid.uuid4(),
-                group_id=uuid.uuid4(),
-            )
+    db = MagicMock()
+    reference_id = uuid.uuid4()
+    group_id = uuid.uuid4()
+    loaders = {ContentType.POST: lambda db_, ids, language: {}}
+
+    with patch.dict(f"{MODULE}._LOADERS", loaders), pytest.raises(HTTPException) as exc:
+        validate_subtask_reference(
+            db=db,
+            content_type=ContentType.POST,
+            reference_id=reference_id,
+            group_id=group_id,
+        )
 
     assert exc.value.detail["message"] == REFERENCE_NOT_FOUND
 
 
 def test_validate_requires_a_reference_id_for_reference_types():
+    db = MagicMock()
+    group_id = uuid.uuid4()
+
     with pytest.raises(HTTPException) as exc:
         validate_subtask_reference(
-            db=MagicMock(),
+            db=db,
             content_type="EVENT",
             reference_id=None,
-            group_id=uuid.uuid4(),
+            group_id=group_id,
         )
 
     assert exc.value.detail["message"] == REFERENCE_ID_REQUIRED
 
 
 def test_validate_rejects_a_reference_id_on_a_plain_content_type():
+    db = MagicMock()
+    reference_id = uuid.uuid4()
+    group_id = uuid.uuid4()
+
     with pytest.raises(HTTPException) as exc:
         validate_subtask_reference(
-            db=MagicMock(),
+            db=db,
             content_type=ContentType.TEXT,
-            reference_id=uuid.uuid4(),
-            group_id=uuid.uuid4(),
+            reference_id=reference_id,
+            group_id=group_id,
         )
 
     assert exc.value.detail["message"] == REFERENCE_ID_NOT_ALLOWED
@@ -436,6 +448,7 @@ def test_load_posts_only_returns_published_posts():
 def test_hidden_post_reference_fails_validation():
     """Write-time validation goes through the same loader, so a hidden post is rejected."""
     post_id = uuid.uuid4()
+    group_id = uuid.uuid4()
     db = _db_returning([])
 
     with pytest.raises(HTTPException) as exc:
@@ -443,7 +456,7 @@ def test_hidden_post_reference_fails_validation():
             db=db,
             content_type=ContentType.POST,
             reference_id=post_id,
-            group_id=uuid.uuid4(),
+            group_id=group_id,
         )
 
     assert exc.value.detail["message"] == REFERENCE_NOT_FOUND

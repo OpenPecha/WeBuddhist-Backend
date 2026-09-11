@@ -447,7 +447,8 @@ def test_create_new_plan_success():
         assert created_plan_model.description == request.description
         assert created_plan_model.image_url == request.image_url
         assert created_plan_model.start_date == request.start_date
-        assert created_plan_model.author_id is not None and str(created_plan_model.author_id) != ""
+        assert created_plan_model.author_id is not None
+        assert str(created_plan_model.author_id) != ""
 
         # verify repository interactions - plan items (bulk)
         mock_save_plan_items.assert_called_once_with(db=db_session, plan_items=ANY)
