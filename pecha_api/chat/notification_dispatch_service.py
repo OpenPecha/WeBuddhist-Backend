@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from pecha_api.chat.repository import (
+    SUPPRESSED_SQS_MESSAGE_ID,
     get_message_by_id_any_room,
     get_prayer_by_id,
     has_dispatched_prayer_since,
@@ -21,12 +22,6 @@ from pecha_api.config import get_int
 from pecha_api.db.database import SessionLocal
 
 logger = logging.getLogger(__name__)
-
-# Written to notification_sqs_message_id for a prayer that deliberately did not
-# raise a push (self-pray, or one already covered by a recent notification for
-# the same request). It marks the prayer as handled so the reconciler does not
-# keep retrying it forever.
-SUPPRESSED_SQS_MESSAGE_ID = "SUPPRESSED"
 
 
 def enqueue_chat_message_notification(message_id: UUID) -> str | None:

@@ -1144,7 +1144,10 @@ def update_event_service(token: str, event_id: UUID, request: UpdateEventRequest
         if chat_was_enabled and not bool(getattr(saved, "chat_enabled", True)):
             _close_event_chat_sockets_best_effort(event_id=saved.id)
 
-        return _event_to_dto(saved)
+        return _event_to_dto(
+            saved,
+            chat_room_id=_chat_room_id_for_event(db=db, event_id=saved.id),
+        )
 
 
 def delete_event_service(token: str, event_id: UUID) -> None:

@@ -71,6 +71,7 @@ V1_TOGGLEABLE_TYPES = (
     NotificationType.EVENT_REMINDER,
     NotificationType.ACCUMULATION,
     NotificationType.SERIES,
+    NotificationType.PRAYER_RECEIVED,
 )
 
 # Group-scoped subset of the above, in render order.

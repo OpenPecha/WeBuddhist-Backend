@@ -381,19 +381,23 @@ def resolve_or_create_event_room(
     room per event row serves every occurrence."""
     event = load_open_event(db=db, event_id=event_id, for_update=lock_group)
 
+    # Checked unconditionally, even for an already-active member: unlike a
+    # group room (whose membership is explicitly closed out by
+    # leave_group_chat_room the moment the user leaves/unfollows), an event's
+    # owning group can also change out from under a standing membership when
+    # the event is moved to a different group in the CMS. A stale membership
+    # row must not keep granting access in either case.
+    _require_event_chat_eligibility(db=db, event=event, user_id=user.id)
+
     room = get_room_by_event_id(db=db, event_id=event_id)
     if room is not None:
         _ensure_membership(
             db=db,
             room=room,
             user=user,
-            require_eligibility=lambda: _require_event_chat_eligibility(
-                db=db, event=event, user_id=user.id
-            ),
+            require_eligibility=lambda: None,
         )
         return room
-
-    _require_event_chat_eligibility(db=db, event=event, user_id=user.id)
 
     room = ChatRoom(
         event_id=event_id,

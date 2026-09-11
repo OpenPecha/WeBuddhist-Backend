@@ -672,6 +672,13 @@ def list_message_prayers(
     return prayers, total
 
 
+# Written to notification_sqs_message_id for a prayer that deliberately did not
+# raise a push (self-pray, or one already covered by a recent notification for
+# the same request). Excluded from has_dispatched_prayer_since below so a
+# suppressed prayer never counts as an actual dispatch for coalescing.
+SUPPRESSED_SQS_MESSAGE_ID = "SUPPRESSED"
+
+
 def has_dispatched_prayer_since(
     db: Session,
     *,
@@ -679,13 +686,16 @@ def has_dispatched_prayer_since(
     since: datetime,
     exclude_prayer_id: Optional[UUID] = None,
 ) -> bool:
-    """Whether this request already had a prayer notification sent recently.
+    """Whether this request already had a prayer notification actually sent
+    (not merely suppressed) recently.
 
     Backs coalescing: ten people praying in the same window is one push, not ten."""
     query = db.query(ChatMessagePrayer.id).filter(
         ChatMessagePrayer.message_id == message_id,
         ChatMessagePrayer.notification_dispatched_at.isnot(None),
         ChatMessagePrayer.notification_dispatched_at >= since,
+        ChatMessagePrayer.notification_sqs_message_id.isnot(None),
+        ChatMessagePrayer.notification_sqs_message_id != SUPPRESSED_SQS_MESSAGE_ID,
     )
     if exclude_prayer_id is not None:
         query = query.filter(ChatMessagePrayer.id != exclude_prayer_id)
