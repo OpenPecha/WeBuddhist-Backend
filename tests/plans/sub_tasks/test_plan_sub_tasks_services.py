@@ -38,10 +38,10 @@ async def test_create_new_sub_tasks_builds_and_saves_with_incremented_display_or
 
     saved_items = [
         SimpleNamespace(
-            id=uuid.uuid4(), content_type="TEXT", content="First", duration="10", display_order=6, source_text_id=None, pecha_segment_id=None, segment_ids=None, segment_numbers=None,
+            id=uuid.uuid4(), content_type="TEXT", content="First", duration="10", display_order=6, source_text_id=None, pecha_segment_id=None, segment_ids=None, segment_numbers=None, reference_id=None,
         ),
         SimpleNamespace(
-            id=uuid.uuid4(), content_type="TEXT", content="Second", duration="10", display_order=7, source_text_id=None, pecha_segment_id=None, segment_ids=None, segment_numbers=None,
+            id=uuid.uuid4(), content_type="TEXT", content="Second", duration="10", display_order=7, source_text_id=None, pecha_segment_id=None, segment_ids=None, segment_numbers=None, reference_id=None,
         ),
     ]
 
@@ -55,6 +55,9 @@ async def test_create_new_sub_tasks_builds_and_saves_with_incremented_display_or
         "pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_services._get_author_task",
         return_value=SimpleNamespace(id=task_id, created_by="author@example.com"),
     ) as mock_get_task, patch(
+        "pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_services._get_task_plan",
+        return_value=SimpleNamespace(id=uuid.uuid4(), group_id=uuid.uuid4(), language="EN"),
+    ), patch(
         "pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_services.get_max_display_order_for_sub_task",
         return_value=5,
     ) as mock_get_max, patch(
@@ -68,6 +71,7 @@ async def test_create_new_sub_tasks_builds_and_saves_with_incremented_display_or
             content_type="TEXT",
             content="First",
             duration="10",
+            reference_id=None,
             display_order=6,
             created_by="author@example.com",
         )
@@ -76,6 +80,7 @@ async def test_create_new_sub_tasks_builds_and_saves_with_incremented_display_or
             content_type="TEXT",
             content="Second",
             duration="10",
+            reference_id=None,
             display_order=7,
             created_by="author@example.com",
         )
@@ -107,6 +112,7 @@ async def test_create_new_sub_tasks_builds_and_saves_with_incremented_display_or
             "pecha_segment_id": None,
             "segment_ids": None,
             "segment_numbers": None,
+            "reference_id": None,
             "display_order": 6,
             "created_by": "author@example.com",
         }
@@ -119,6 +125,7 @@ async def test_create_new_sub_tasks_builds_and_saves_with_incremented_display_or
             "pecha_segment_id": None,
             "segment_ids": None,
             "segment_numbers": None,
+            "reference_id": None,
             "display_order": 7,
             "created_by": "author@example.com",
         }
@@ -214,6 +221,9 @@ async def test_update_sub_task_by_task_id_deletes_missing_and_updates_existing_a
         "pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_services._get_author_task",
         return_value=SimpleNamespace(id=task_id, created_by="author@example.com"),
     ) as mock_get_task, patch(
+        "pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_services._get_task_plan",
+        return_value=SimpleNamespace(id=uuid.uuid4(), group_id=uuid.uuid4(), language="EN"),
+    ), patch(
         "pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_services.get_sub_tasks_by_task_id",
         return_value=[
             SimpleNamespace(id=existing_to_keep_id),
@@ -318,6 +328,7 @@ async def test_update_sub_task_by_task_id_creates_new_sub_tasks_for_none_ids():
         content_type="TEXT",
         content="New A",
         duration="10",
+        reference_id=None,
         display_order=2,
         created_by="author@example.com",
     )
@@ -326,6 +337,7 @@ async def test_update_sub_task_by_task_id_creates_new_sub_tasks_for_none_ids():
         content_type="TEXT",
         content="New B",
         duration="10",
+        reference_id=None,
         cdisplay_order=3,
         created_by="author@example.com",
     )
@@ -339,6 +351,9 @@ async def test_update_sub_task_by_task_id_creates_new_sub_tasks_for_none_ids():
     ), patch(
         "pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_services._get_author_task",
         return_value=SimpleNamespace(id=task_id, created_by="author@example.com"),
+    ), patch(
+        "pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_services._get_task_plan",
+        return_value=SimpleNamespace(id=uuid.uuid4(), group_id=uuid.uuid4(), language="EN"),
     ), patch(
         "pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_services.get_sub_tasks_by_task_id",
         return_value=[SimpleNamespace(id=existing_id)],
@@ -377,6 +392,7 @@ async def test_update_sub_task_by_task_id_creates_new_sub_tasks_for_none_ids():
             "pecha_segment_id": None,
             "segment_ids": None,
             "segment_numbers": None,
+            "reference_id": None,
             "display_order": 2,
             "created_by": "author@example.com",
         }
@@ -389,6 +405,7 @@ async def test_update_sub_task_by_task_id_creates_new_sub_tasks_for_none_ids():
             "pecha_segment_id": None,
             "segment_ids": None,
             "segment_numbers": None,
+            "reference_id": None,
             "display_order": 3,
             "created_by": "author@example.com",
         }

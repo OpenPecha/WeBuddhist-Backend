@@ -752,10 +752,13 @@ def is_day_completed(db: SessionLocal(), user_id: UUID, day_id: UUID) -> bool:
 async def _get_user_sub_tasks_dto_bulk(sub_tasks: List[PlanSubTask], completed_subtask_ids: Set[UUID]) -> List[UserSubTaskDTO]:
     from pecha_api.plans.audio.dto_helpers import build_subtask_timestamp_fields
 
+    from pecha_api.plans.shared.subtask_reference_resolver import resolve_subtask_references
+
     resolved_contents = await resolve_subtasks_content(sub_tasks)
+    resolved_references = resolve_subtask_references(subtasks=sub_tasks)
 
     result = []
-    for sub_task, resolved_content in zip(sub_tasks, resolved_contents):
+    for sub_task, resolved_content, reference in zip(sub_tasks, resolved_contents, resolved_references):
         start_ms, end_ms = build_subtask_timestamp_fields(sub_task)
         audio_url = (
             _get_presigned_url(content=sub_task.audio_url)
@@ -774,6 +777,8 @@ async def _get_user_sub_tasks_dto_bulk(sub_tasks: List[PlanSubTask], completed_s
                 pecha_segment_id=sub_task.pecha_segment_id,
                 segment_ids=sub_task.segment_ids,
                 segment_numbers=sub_task.segment_numbers,
+                reference_id=sub_task.reference_id,
+                reference=reference,
                 start_ms=start_ms,
                 end_ms=end_ms,
             )

@@ -12,6 +12,25 @@ class ContentType(enum.Enum):
     VIDEO = "VIDEO"
     IMAGE = "IMAGE"
     SOURCE_REFERENCE = "SOURCE_REFERENCE"
+    # Content types that point at another piece of WeBuddhist content instead
+    # of carrying the content themselves. Each stores the target's id in
+    # PlanSubTask.reference_id and is resolved for display at read time.
+    GROUP_ACCUMULATION = "GROUP_ACCUMULATION"
+    GROUP_COLLECTION = "GROUP_COLLECTION"
+    EVENT = "EVENT"
+    POST = "POST"
+
+
+# Content types whose payload is a reference to another entity (reference_id)
+# rather than inline content.
+REFERENCE_CONTENT_TYPES = frozenset(
+    {
+        ContentType.GROUP_ACCUMULATION,
+        ContentType.GROUP_COLLECTION,
+        ContentType.EVENT,
+        ContentType.POST,
+    }
+)
 
 class UserPlanStatus(enum.Enum):
     NOT_STARTED = "NOT_STARTED"

@@ -957,9 +957,12 @@ async def delete_selected_plan(token:str,plan_id: UUID):
 
 def _get_task_subtasks_dto(subtasks: List[PlanSubTask]) -> List[SubTaskDTO]:
     from pecha_api.plans.audio.dto_helpers import build_subtask_timestamp_fields
+    from pecha_api.plans.shared.subtask_reference_resolver import resolve_subtask_references
+
+    references = resolve_subtask_references(subtasks=subtasks)
 
     subtasks_dto = []
-    for subtask in subtasks:
+    for subtask, reference in zip(subtasks, references):
         start_ms, end_ms = build_subtask_timestamp_fields(subtask)
         audio_url = (
             generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=subtask.audio_url)
@@ -974,6 +977,8 @@ def _get_task_subtasks_dto(subtasks: List[PlanSubTask]) -> List[SubTaskDTO]:
                 start_ms=start_ms,
                 end_ms=end_ms,
                 audio_url=audio_url,
+                reference_id=subtask.reference_id,
+                reference=reference,
             )
         )
     return subtasks_dto

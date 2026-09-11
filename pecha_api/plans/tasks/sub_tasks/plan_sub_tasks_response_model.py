@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from pecha_api.plans.plans_enums import ContentType
+from pecha_api.plans.shared.subtask_reference_resolver import SubTaskReferenceDTO
 from typing import List
 from uuid import UUID
 
@@ -9,6 +10,9 @@ class SubTaskRequestFields(BaseModel):
     content_type: str
     content: str
     duration: Optional[str] = None
+    # Target of a reference content type (GROUP_ACCUMULATION, GROUP_COLLECTION,
+    # EVENT, POST); must belong to the plan's group.
+    reference_id: Optional[UUID] = None
     source_text_id: Optional[str] = None
     pecha_segment_id: Optional[str] = None
     segment_ids: Optional[List[str]] = None
@@ -34,6 +38,8 @@ class SubTaskDTO(BaseModel):
     segment_ids: Optional[List[str]] = None
     segment_numbers: Optional[List[int]] = None
     segment_refs: Optional[List[Optional[str]]] = None
+    reference_id: Optional[UUID] = None
+    reference: Optional[SubTaskReferenceDTO] = None
     display_order: int
     start_ms: Optional[int] = None
     end_ms: Optional[int] = None

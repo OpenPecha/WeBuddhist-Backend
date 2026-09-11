@@ -252,6 +252,7 @@ async def test_get_task_subtasks_service_image_content_uses_presigned_url():
         pecha_segment_id=None,
         segment_ids=None,
         segment_numbers=None,
+        reference_id=None,
         audio_url=None,
     )
 
@@ -563,6 +564,7 @@ async def test_get_task_subtasks_service_success():
         pecha_segment_id=None,
         segment_ids=None,
         segment_numbers=None,
+        reference_id=None,
         audio_url=None,
     )
     subtask2 = SimpleNamespace(
@@ -575,6 +577,7 @@ async def test_get_task_subtasks_service_success():
         pecha_segment_id=None,
         segment_ids=None,
         segment_numbers=None,
+        reference_id=None,
         audio_url=None,
     )
 

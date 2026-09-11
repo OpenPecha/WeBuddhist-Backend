@@ -395,11 +395,14 @@ from pecha_api.plans.audio.dto_helpers import (
 
 
 async def build_task_dto(task) -> TaskDTO:
+    from pecha_api.plans.shared.subtask_reference_resolver import resolve_subtask_references
+
     ordered_subtasks = sorted(task.sub_tasks, key=lambda st: st.display_order)
     resolved_contents = await resolve_subtasks_content(ordered_subtasks)
+    resolved_references = resolve_subtask_references(subtasks=ordered_subtasks)
 
     subtasks = []
-    for subtask, resolved_content in zip(ordered_subtasks, resolved_contents):
+    for subtask, resolved_content, reference in zip(ordered_subtasks, resolved_contents, resolved_references):
         start_ms, end_ms = build_subtask_timestamp_fields(subtask)
         audio_url = (
             generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=subtask.audio_url)
@@ -417,6 +420,8 @@ async def build_task_dto(task) -> TaskDTO:
                 pecha_segment_id=subtask.pecha_segment_id,
                 segment_ids=subtask.segment_ids,
                 segment_numbers=subtask.segment_numbers,
+                reference_id=subtask.reference_id,
+                reference=reference,
                 display_order=subtask.display_order,
                 start_ms=start_ms,
                 end_ms=end_ms,

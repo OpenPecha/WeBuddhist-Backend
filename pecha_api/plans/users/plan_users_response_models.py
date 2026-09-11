@@ -4,6 +4,7 @@ from pecha_api.plans.media.media_response_models import ImageUrlModel
 from uuid import UUID
 from datetime import datetime
 from pecha_api.plans.plans_enums import ContentType, SeriesStatus
+from pecha_api.plans.shared.subtask_reference_resolver import SubTaskReferenceDTO
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
 from pecha_api.plans.public.plan_response_models import DayVideoSummaryDTO
@@ -86,6 +87,8 @@ class UserSubTaskDTO(BaseModel):
     pecha_segment_id: Optional[str] = None
     segment_ids: Optional[List[str]] = None
     segment_numbers: Optional[List[int]] = None
+    reference_id: Optional[UUID] = None
+    reference: Optional[SubTaskReferenceDTO] = None
     start_ms: Optional[int] = None
     end_ms: Optional[int] = None
 
