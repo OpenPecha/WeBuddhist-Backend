@@ -26,7 +26,6 @@ class SubTaskRequestFields(BaseModel):
     start_ms: Optional[int] = None
     end_ms: Optional[int] = None
 
-
     @model_validator(mode="after")
     def _require_content_for_inline_types(self):
         if self.content is None and not is_reference_content_type(self.content_type):
