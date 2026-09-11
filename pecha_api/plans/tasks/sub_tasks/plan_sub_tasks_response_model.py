@@ -8,7 +8,10 @@ from uuid import UUID
 
 class SubTaskRequestFields(BaseModel):
     content_type: str
-    content: str
+    # Optional because reference content types (GROUP_ACCUMULATION,
+    # GROUP_COLLECTION, EVENT, POST) carry no inline content - the linked
+    # entity is the content.
+    content: Optional[str] = None
     duration: Optional[str] = None
     # Target of a reference content type (GROUP_ACCUMULATION, GROUP_COLLECTION,
     # EVENT, POST); must belong to the plan's group.
@@ -29,7 +32,7 @@ class SubTaskRequest(BaseModel):
 class SubTaskDTO(BaseModel):
     id: Optional[UUID]
     content_type: ContentType
-    content: str
+    content: Optional[str] = None
     duration: Optional[str] = None
     image_url: Optional[str] = None
     audio_url: Optional[str] = None

@@ -42,7 +42,7 @@ from pecha_api.plans.shared.subtask_reference_resolver import (
 )
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
 from pecha_api.plans.items.plan_items_repository import get_plan_item_by_id
-from pecha_api.plans.response_message import PLAN_DAY_NOT_FOUND
+from pecha_api.plans.response_message import PLAN_DAY_NOT_FOUND, SUBTASK_NOT_IN_TASK
 import asyncio
 
 
@@ -56,6 +56,16 @@ def _get_task_plan(db, task):
             detail=ResponseError(error=BAD_REQUEST, message=PLAN_DAY_NOT_FOUND).model_dump(),
         )
     return plan
+
+
+def _reject_foreign_sub_task_ids(requested, allowed_ids) -> None:
+    """Reject subtask ids that belong to a task the caller wasn't authorized for."""
+    allowed = set(allowed_ids)
+    if any(sub_task.id not in allowed for sub_task in requested):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ResponseError(error=BAD_REQUEST, message=SUBTASK_NOT_IN_TASK).model_dump(),
+        )
 
 
 def _validate_subtask_references(db, plan, sub_tasks) -> None:
@@ -145,9 +155,19 @@ async def update_sub_task_by_task_id(token: str, update_sub_task_request: Update
         plan = _get_task_plan(db=db, task=task)
         _validate_subtask_references(db=db, plan=plan, sub_tasks=update_sub_task_request.sub_tasks)
 
+        existing_in_db = get_sub_tasks_by_task_id(db=db, task_id=update_sub_task_request.task_id)
+        existing_ids_in_db = [sub_task.id for sub_task in existing_in_db]
+
         existing_sub_tasks_to_update: List[SubTaskDTO] = [
             subtask for subtask in update_sub_task_request.sub_tasks if subtask.id is not None
         ]
+
+        # Authorization was granted for this task only, so a subtask id from
+        # another task must be rejected outright rather than silently skipped.
+        _reject_foreign_sub_task_ids(
+            requested=existing_sub_tasks_to_update,
+            allowed_ids=existing_ids_in_db,
+        )
 
         new_sub_tasks_to_create: List[PlanSubTask] = [
             PlanSubTask(
@@ -167,14 +187,16 @@ async def update_sub_task_by_task_id(token: str, update_sub_task_request: Update
             if subtask.id is None
         ]
 
-        existing_in_db = get_sub_tasks_by_task_id(db=db, task_id=update_sub_task_request.task_id)
-        existing_ids_in_db = [sub_task.id for sub_task in existing_in_db]
         requested_existing_ids = [sub_task.id for sub_task in existing_sub_tasks_to_update]
         sub_tasks_ids_to_delete = [id for id in existing_ids_in_db if id not in requested_existing_ids]
 
         delete_sub_tasks_bulk(db=db, sub_tasks_ids=sub_tasks_ids_to_delete)
 
-        update_sub_tasks_bulk(db=db, sub_tasks=existing_sub_tasks_to_update)
+        update_sub_tasks_bulk(
+            db=db,
+            task_id=update_sub_task_request.task_id,
+            sub_tasks=existing_sub_tasks_to_update,
+        )
 
         for subtask in existing_sub_tasks_to_update:
             apply_sub_task_timestamp(

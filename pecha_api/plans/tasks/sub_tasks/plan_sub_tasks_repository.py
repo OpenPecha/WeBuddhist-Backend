@@ -52,11 +52,20 @@ def delete_sub_tasks_bulk(db: Session, sub_tasks_ids: List[UUID]) -> None:
     db.query(PlanSubTask).filter(PlanSubTask.id.in_(sub_tasks_ids)).delete()
     db.commit()
 
-def update_sub_tasks_bulk(db: Session, sub_tasks: List[SubTaskDTO]) -> None:
+def update_sub_tasks_bulk(db: Session, task_id: UUID, sub_tasks: List[SubTaskDTO]) -> None:
+    """Update subtasks in place, scoped to the task the caller was authorized for.
+
+    `task_id` is part of the predicate, not just a lookup hint: authorization
+    is granted for one task, so a subtask id belonging to another task must
+    not be writable through this call.
+    """
     if not sub_tasks:
         return
     for sub_task in sub_tasks:
-        db.query(PlanSubTask).filter(PlanSubTask.id == sub_task.id).update(
+        db.query(PlanSubTask).filter(
+            PlanSubTask.id == sub_task.id,
+            PlanSubTask.task_id == task_id,
+        ).update(
             {
                 PlanSubTask.content: sub_task.content,
                 PlanSubTask.content_type: sub_task.content_type,

@@ -151,7 +151,13 @@ async def get_task_subtasks_service(task_id: UUID, token: str) -> GetTaskRespons
             resolve_subtasks_content(task.sub_tasks),
             resolve_subtasks_refs(task.sub_tasks),
         )
-        resolved_references = resolve_subtask_references(db=db, subtasks=task.sub_tasks)
+        plan_item = get_plan_item_by_id(db=db, day_id=task.plan_item_id)
+        plan = get_plan_by_id(db=db, plan_id=plan_item.plan_id) if plan_item else None
+        resolved_references = resolve_subtask_references(
+            db=db,
+            subtasks=task.sub_tasks,
+            language=getattr(plan, "language", None),
+        )
 
         subtasks_dto = []
         for sub_task, resolved_content, segment_refs, reference in zip(task.sub_tasks, resolved_contents, resolved_refs, resolved_references):

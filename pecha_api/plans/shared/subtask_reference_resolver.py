@@ -79,6 +79,9 @@ def _truncate(value: Optional[str], limit: int = 120) -> Optional[str]:
     if not value:
         return None
     collapsed = " ".join(value.split())
+    if not collapsed:
+        # Whitespace-only text is no title at all; let the caller fall back.
+        return None
     if len(collapsed) <= limit:
         return collapsed
     return collapsed[: limit - 3].rstrip() + "..."
@@ -146,11 +149,18 @@ def _load_events(db: Session, ids: List[UUID], language: Optional[str]):
 
 
 def _load_posts(db: Session, ids: List[UUID], language: Optional[str]):
+    from pecha_api.group_posts.enums import GroupPostStatus
     from pecha_api.group_posts.models import GroupPost
 
+    # A hidden post is not public content, so it is not referenceable: it must
+    # resolve to nothing on read and be rejected on write, same as a deleted one.
     rows = (
         db.query(GroupPost)
-        .filter(GroupPost.id.in_(ids), GroupPost.deleted_at.is_(None))
+        .filter(
+            GroupPost.id.in_(ids),
+            GroupPost.deleted_at.is_(None),
+            GroupPost.status == GroupPostStatus.PUBLISHED,
+        )
         .all()
     )
     resolved = {}

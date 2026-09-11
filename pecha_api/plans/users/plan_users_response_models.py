@@ -81,7 +81,7 @@ class UserSubTaskDTO(BaseModel):
     is_completed: bool
     duration: Optional[str] = None
     content_type: ContentType
-    content: str
+    content: Optional[str] = None
     audio_url: Optional[str] = None
     source_text_id: Optional[str] = None
     pecha_segment_id: Optional[str] = None
