@@ -10,6 +10,7 @@ class ShareRequest(BaseModel):
     segment_id: Optional[str] = None
     content_id: Optional[str] = None
     text_id: Optional[str] = None
+    poem_id: Optional[str] = None
     content_index: Optional[int] = None
     language: Optional[str] = None
     url: Optional[str] = None
