@@ -21,6 +21,9 @@ from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.users.recitation_collection.recitation_collection_models import (
     RecitationCollection,
 )
+from pecha_api.plans.users.recitation_collection.recitation_collection_repository import (
+    get_collection_item_counts as get_recitation_collection_item_counts,
+)
 from pecha_api.group_recitation_collection.models import (
     GroupRecitationCollection,
     GroupRecitationCollectionItem,
@@ -892,18 +895,10 @@ def _resolve_recitation_collection_sessions(
     )
     collection_map = {collection.id: collection for collection in collections}
 
-    # Get item counts for each collection
-    from sqlalchemy import func
-    from pecha_api.plans.users.recitation_collection.recitation_collection_models import RecitationCollectionItem
-
-    item_counts = dict(
-        db.query(
-            RecitationCollectionItem.recitation_collection_id,
-            func.count(RecitationCollectionItem.id)
-        )
-        .filter(RecitationCollectionItem.recitation_collection_id.in_(collection_ids))
-        .group_by(RecitationCollectionItem.recitation_collection_id)
-        .all()
+    # Item counts come from the shared helper so soft-deleted items
+    # (deleted_at set) are excluded, matching every other collection view.
+    item_counts = get_recitation_collection_item_counts(
+        db=db, collection_ids=collection_ids
     )
 
     resolved = []
