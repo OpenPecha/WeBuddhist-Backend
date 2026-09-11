@@ -32,6 +32,20 @@ REFERENCE_CONTENT_TYPES = frozenset(
     }
 )
 
+
+def is_reference_content_type(content_type) -> bool:
+    """True when the content type links to other content instead of carrying it.
+
+    Accepts a ContentType or its string name; an unrecognised value is not a
+    reference type, so it stays subject to the inline content requirement.
+    """
+    if isinstance(content_type, ContentType):
+        return content_type in REFERENCE_CONTENT_TYPES
+    try:
+        return ContentType(content_type) in REFERENCE_CONTENT_TYPES
+    except ValueError:
+        return False
+
 class UserPlanStatus(enum.Enum):
     NOT_STARTED = "NOT_STARTED"
     ACTIVE = "ACTIVE"

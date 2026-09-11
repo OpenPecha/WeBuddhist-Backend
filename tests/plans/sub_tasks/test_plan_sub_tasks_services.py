@@ -6,6 +6,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi import HTTPException
 
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_response_model import (
+    CONTENT_REQUIRED,
     SubTaskDTO,
     SubTaskRequest,
     SubTaskRequestFields,
@@ -17,7 +18,7 @@ from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_response_model import (
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_services import (
     _get_task_plan,
     _reject_foreign_sub_task_ids,
-    _validate_subtask_references,
+    _validate_subtasks,
     create_new_sub_tasks,
     update_sub_task_by_task_id,
     change_subtask_order_service,
@@ -885,15 +886,15 @@ def test_get_task_plan_404s_when_the_plan_is_missing():
     assert exc.value.status_code == 404
 
 
-def test_validate_subtask_references_checks_every_subtask_against_the_plans_group():
+def test_validate_subtasks_checks_every_subtask_against_the_plans_group():
     group_id = uuid.uuid4()
     plan = SimpleNamespace(id=uuid.uuid4(), group_id=group_id)
-    first = SimpleNamespace(content_type="EVENT", reference_id=uuid.uuid4())
-    second = SimpleNamespace(content_type="TEXT", reference_id=None)
+    first = SimpleNamespace(content_type="EVENT", content=None, reference_id=uuid.uuid4())
+    second = SimpleNamespace(content_type="TEXT", content="Read this", reference_id=None)
     db = MagicMock()
 
     with patch(f"{SERVICE}.validate_subtask_reference") as mock_validate:
-        _validate_subtask_references(db=db, plan=plan, sub_tasks=[first, second])
+        _validate_subtasks(db=db, plan=plan, sub_tasks=[first, second])
 
     assert mock_validate.call_count == 2
     assert mock_validate.call_args_list[0].kwargs == {
@@ -905,16 +906,16 @@ def test_validate_subtask_references_checks_every_subtask_against_the_plans_grou
     assert mock_validate.call_args_list[1].kwargs["content_type"] == "TEXT"
 
 
-def test_validate_subtask_references_propagates_a_rejection():
+def test_validate_subtasks_propagates_a_rejection():
     plan = SimpleNamespace(id=uuid.uuid4(), group_id=uuid.uuid4())
-    sub_task = SimpleNamespace(content_type="POST", reference_id=uuid.uuid4())
+    sub_task = SimpleNamespace(content_type="POST", content=None, reference_id=uuid.uuid4())
 
     with patch(
         f"{SERVICE}.validate_subtask_reference",
         side_effect=HTTPException(status_code=400, detail="nope"),
     ):
         with pytest.raises(HTTPException) as exc:
-            _validate_subtask_references(
+            _validate_subtasks(
                 db=MagicMock(), plan=plan, sub_tasks=[sub_task]
             )
 
@@ -1037,3 +1038,44 @@ async def test_update_sub_task_scopes_the_bulk_update_to_the_authorized_task():
         await update_sub_task_by_task_id(token="token", update_sub_task_request=request)
 
     assert mock_update.call_args.kwargs["task_id"] == task_id
+
+
+# --- Inline content requirement -------------------------------------------
+#
+# Reference subtasks carry no content, but inline ones must: a NULL content on
+# a TEXT subtask would reach text-to-audio generation as None.
+
+
+def test_validate_subtasks_rejects_an_inline_subtask_without_content():
+    plan = SimpleNamespace(id=uuid.uuid4(), group_id=uuid.uuid4())
+    sub_task = SimpleNamespace(content_type="TEXT", content=None, reference_id=None)
+
+    with patch(f"{SERVICE}.validate_subtask_reference") as mock_reference:
+        with pytest.raises(HTTPException) as exc:
+            _validate_subtasks(db=MagicMock(), plan=plan, sub_tasks=[sub_task])
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail["message"] == CONTENT_REQUIRED
+    # Rejected before the reference lookup runs.
+    assert mock_reference.call_count == 0
+
+
+def test_validate_subtasks_allows_an_empty_string_for_inline_content():
+    """Empty content was accepted before reference types existed; keep it so."""
+    plan = SimpleNamespace(id=uuid.uuid4(), group_id=uuid.uuid4())
+    sub_task = SimpleNamespace(content_type="IMAGE", content="", reference_id=None)
+
+    with patch(f"{SERVICE}.validate_subtask_reference"):
+        _validate_subtasks(db=MagicMock(), plan=plan, sub_tasks=[sub_task])
+
+
+def test_validate_subtasks_allows_a_reference_subtask_without_content():
+    plan = SimpleNamespace(id=uuid.uuid4(), group_id=uuid.uuid4())
+    sub_task = SimpleNamespace(
+        content_type="GROUP_COLLECTION", content=None, reference_id=uuid.uuid4()
+    )
+
+    with patch(f"{SERVICE}.validate_subtask_reference") as mock_reference:
+        _validate_subtasks(db=MagicMock(), plan=plan, sub_tasks=[sub_task])
+
+    assert mock_reference.call_count == 1

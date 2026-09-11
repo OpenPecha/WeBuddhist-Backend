@@ -23,7 +23,9 @@ from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_repository import (
     update_sub_tasks
 )
 
+from pecha_api.plans.plans_enums import is_reference_content_type
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_response_model import (
+    CONTENT_REQUIRED,
     SubTaskDTO,
     SubTaskRequest,
     SubTaskResponse,
@@ -68,8 +70,24 @@ def _reject_foreign_sub_task_ids(requested, allowed_ids) -> None:
         )
 
 
-def _validate_subtask_references(db, plan, sub_tasks) -> None:
+def _validate_subtasks(db, plan, sub_tasks) -> None:
+    """Check each subtask is coherent for its content type before it is written.
+
+    Inline types must carry content; reference types must instead point at an
+    entity in the plan's own group. The request model enforces the content rule
+    for creates, but `SubTaskDTO` doubles as a response model and so stays
+    lenient - which makes this the only guard on the update path.
+    """
     for sub_task in sub_tasks:
+        if sub_task.content is None and not is_reference_content_type(
+            sub_task.content_type
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=CONTENT_REQUIRED
+                ).model_dump(),
+            )
         validate_subtask_reference(
             db=db,
             content_type=sub_task.content_type,
@@ -83,7 +101,7 @@ async def create_new_sub_tasks(token: str, create_task_request: SubTaskRequest) 
     with SessionLocal() as db:
         task = _get_author_task(db=db, task_id=create_task_request.task_id, current_author=current_author)
         plan = _get_task_plan(db=db, task=task)
-        _validate_subtask_references(db=db, plan=plan, sub_tasks=create_task_request.sub_tasks)
+        _validate_subtasks(db=db, plan=plan, sub_tasks=create_task_request.sub_tasks)
 
         next_display_order = get_max_display_order_for_sub_task(db=db, task_id=create_task_request.task_id) + 1
 
@@ -153,7 +171,7 @@ async def update_sub_task_by_task_id(token: str, update_sub_task_request: Update
     with SessionLocal() as db:
         task = _get_author_task(db=db, task_id=update_sub_task_request.task_id, current_author=current_author)
         plan = _get_task_plan(db=db, task=task)
-        _validate_subtask_references(db=db, plan=plan, sub_tasks=update_sub_task_request.sub_tasks)
+        _validate_subtasks(db=db, plan=plan, sub_tasks=update_sub_task_request.sub_tasks)
 
         existing_in_db = get_sub_tasks_by_task_id(db=db, task_id=update_sub_task_request.task_id)
         existing_ids_in_db = [sub_task.id for sub_task in existing_in_db]

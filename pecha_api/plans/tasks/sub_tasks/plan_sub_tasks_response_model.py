@@ -1,16 +1,19 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from typing import Optional
-from pecha_api.plans.plans_enums import ContentType
+from pecha_api.plans.plans_enums import ContentType, is_reference_content_type
 from pecha_api.plans.shared.subtask_reference_resolver import SubTaskReferenceDTO
 from typing import List
 from uuid import UUID
 
 
+CONTENT_REQUIRED = "content is required for this content type"
+
+
 class SubTaskRequestFields(BaseModel):
     content_type: str
-    # Optional because reference content types (GROUP_ACCUMULATION,
-    # GROUP_COLLECTION, EVENT, POST) carry no inline content - the linked
-    # entity is the content.
+    # Optional only for reference content types (GROUP_ACCUMULATION,
+    # GROUP_COLLECTION, EVENT, POST), which carry no inline content - the
+    # linked entity is the content. Inline types still require it.
     content: Optional[str] = None
     duration: Optional[str] = None
     # Target of a reference content type (GROUP_ACCUMULATION, GROUP_COLLECTION,
@@ -22,6 +25,13 @@ class SubTaskRequestFields(BaseModel):
     segment_numbers: Optional[List[int]] = None
     start_ms: Optional[int] = None
     end_ms: Optional[int] = None
+
+
+    @model_validator(mode="after")
+    def _require_content_for_inline_types(self):
+        if self.content is None and not is_reference_content_type(self.content_type):
+            raise ValueError(CONTENT_REQUIRED)
+        return self
 
 
 class SubTaskRequest(BaseModel):

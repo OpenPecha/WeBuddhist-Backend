@@ -5,7 +5,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from pecha_api.plans.plans_enums import ContentType, LanguageCode, REFERENCE_CONTENT_TYPES
+from pecha_api.plans.plans_enums import (
+    ContentType,
+    LanguageCode,
+    REFERENCE_CONTENT_TYPES,
+    is_reference_content_type,
+)
 from pecha_api.plans.shared.subtask_reference_resolver import (
     _LOADERS,
     _load_events,
@@ -442,3 +447,14 @@ def test_hidden_post_reference_fails_validation():
         )
 
     assert exc.value.detail["message"] == REFERENCE_NOT_FOUND
+
+
+def test_is_reference_content_type_accepts_enums_and_names():
+    """Creates send the content type as a string, updates as a ContentType."""
+    assert is_reference_content_type(ContentType.EVENT) is True
+    assert is_reference_content_type(ContentType.TEXT) is False
+    assert is_reference_content_type("GROUP_ACCUMULATION") is True
+    assert is_reference_content_type("TEXT") is False
+    # An unrecognised type is not a reference type, so content stays required.
+    assert is_reference_content_type("NOT_A_TYPE") is False
+    assert is_reference_content_type(None) is False
