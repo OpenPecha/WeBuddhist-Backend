@@ -207,6 +207,36 @@ class TestResolveOrCreateEventRoom:
         assert member.left_at is None
         mock_add_member.assert_not_called()
 
+    @patch(f"{MODULE}.get_member")
+    @patch(f"{MODULE}._is_eligible_for_group_chat", return_value=False)
+    @patch(f"{MODULE}.get_room_by_event_id")
+    @patch(f"{MODULE}.is_group_id_published", return_value=True)
+    @patch(f"{MODULE}.get_event_by_id")
+    def test_forbidden_for_a_stale_active_member_no_longer_eligible(
+        self,
+        mock_get_event,
+        _mock_published,
+        mock_get_room,
+        _mock_eligible,
+        mock_get_member,
+    ):
+        """An already-active ChatRoomMember row (left over from before the
+        caller left/unfollowed the owning group, or from before the event was
+        moved to a different group) must not keep granting access - eligibility
+        is re-verified against the event's current group on every call."""
+        event = MockEvent()
+        mock_get_event.return_value = event
+        mock_get_room.return_value = MagicMock(id=uuid4(), event_id=event.id)
+        mock_get_member.return_value = MagicMock(left_at=None)
+
+        with pytest.raises(HTTPException) as exc_info:
+            resolve_or_create_event_room(
+                db=MagicMock(), event_id=event.id, user=MockUser()
+            )
+
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+        mock_get_member.assert_not_called()
+
 
 class TestEventRoomGate:
     """Every room-id route resolves through _get_room_or_404."""
