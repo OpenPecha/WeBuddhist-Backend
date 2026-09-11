@@ -964,20 +964,21 @@ def _apply_clear_recurrence(event: Event, request: UpdateEventRequest) -> tuple[
     """
     was_recurring = event.is_recurring
     original_start = event.start_date
-    start_date = request.start_date if request.start_date is not None else event.start_date
-    end_date = request.end_date if request.end_date is not None else event.end_date
-    if start_date is None or end_date is None:
+    # Falling back to the template's stored dates would silently pin the
+    # event to an old, possibly past occurrence and reschedule reminders for
+    # it, so the caller must name the one-time date explicitly.
+    if request.start_date is None or request.end_date is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="start_date and end_date are required when converting to a one-time event",
         )
+    start_date = request.start_date
+    end_date = request.end_date
     _validate_date_range(start_date, end_date)
     event.start_date = start_date
     event.end_date = end_date
     _clear_recurrence_fields(event)
-    start_date_changed = (
-        request.start_date is not None and request.start_date != original_start
-    )
+    start_date_changed = request.start_date != original_start
     return False, was_recurring or start_date_changed
 
 

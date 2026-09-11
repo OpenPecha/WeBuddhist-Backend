@@ -1,10 +1,13 @@
 """Covers the reminder side effects wired into create/update event flows:
 which branch schedules, reschedules, or cancels reminders, and that the
 reminder mutation shares the same session as the event write."""
+import pytest
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
+
+from fastapi import HTTPException
 
 from pecha_api.events.event_response_models import (
     CreateEventRequest,
@@ -242,6 +245,66 @@ class TestUpdateEventReminderBranches:
         assert existing.recurrence_day_of_week is None
         assert existing.start_date == new_start
         assert existing.end_date == new_end
+
+    def test_converting_to_one_time_requires_explicit_dates(self) -> None:
+        """Without dates the template would silently keep its old occurrence."""
+        group_id = uuid4()
+        existing = _event_stub(group_id=group_id, is_recurring=True)
+        original_start = existing.start_date
+        request = UpdateEventRequest(recurrence=None)
+        mock_db = MagicMock()
+
+        with patch(f"{MODULE}.validate_cms_author_details", return_value=_author()), patch(
+            f"{MODULE}._require_can_edit_event"
+        ), patch(f"{MODULE}.SessionLocal") as mock_session, patch(
+            f"{MODULE}.get_event_by_id", return_value=existing
+        ), patch(
+            f"{MODULE}.update_event", side_effect=lambda db, event, **kwargs: event
+        ), patch(
+            f"{MODULE}.cancel_event_reminders"
+        ) as mock_cancel, patch(
+            f"{MODULE}.reschedule_event_reminders"
+        ) as mock_reschedule, pytest.raises(
+            HTTPException
+        ) as exc:
+            mock_session.return_value.__enter__.return_value = mock_db
+
+            update_event_service(token="token", event_id=existing.id, request=request)
+
+        assert exc.value.status_code == 400
+        # The template is left untouched and no reminders are moved.
+        assert existing.is_recurring is True
+        assert existing.start_date == original_start
+        mock_reschedule.assert_not_called()
+        mock_cancel.assert_not_called()
+
+    def test_converting_to_one_time_requires_both_dates_not_just_one(self) -> None:
+        group_id = uuid4()
+        existing = _event_stub(group_id=group_id, is_recurring=True)
+        new_start = existing.start_date.replace(year=existing.start_date.year + 1)
+        request = UpdateEventRequest(recurrence=None, start_date=new_start)
+        mock_db = MagicMock()
+
+        with patch(f"{MODULE}.validate_cms_author_details", return_value=_author()), patch(
+            f"{MODULE}._require_can_edit_event"
+        ), patch(f"{MODULE}.SessionLocal") as mock_session, patch(
+            f"{MODULE}.get_event_by_id", return_value=existing
+        ), patch(
+            f"{MODULE}.update_event", side_effect=lambda db, event, **kwargs: event
+        ), patch(
+            f"{MODULE}.cancel_event_reminders"
+        ), patch(
+            f"{MODULE}.reschedule_event_reminders"
+        ) as mock_reschedule, pytest.raises(
+            HTTPException
+        ) as exc:
+            mock_session.return_value.__enter__.return_value = mock_db
+
+            update_event_service(token="token", event_id=existing.id, request=request)
+
+        assert exc.value.status_code == 400
+        assert existing.is_recurring is True
+        mock_reschedule.assert_not_called()
 
     def test_omitting_recurrence_does_not_clear_an_existing_rule(self) -> None:
         group_id = uuid4()
