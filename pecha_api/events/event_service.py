@@ -957,13 +957,17 @@ def _clear_recurrence_fields(event: Event) -> None:
 
 
 def _apply_clear_recurrence(event: Event, request: UpdateEventRequest) -> tuple[bool, bool]:
-    """Convert a recurring template into a one-time event.
+    """Handle an explicit `recurrence: null`.
 
-    `recurrence: null` is the explicit signal; dates are required so the
-    event is not left with a stale rule-derived start/end.
+    For a recurring template this is a conversion to a one-time event, and
+    dates are required so it is not left on a stale rule-derived occurrence.
+    For an event that is already one-time it is a no-op, so the rest of the
+    update proceeds normally rather than demanding dates it does not need.
     """
-    was_recurring = event.is_recurring
-    original_start = event.start_date
+    if not event.is_recurring:
+        _clear_recurrence_fields(event)
+        return _apply_date_only_update(event, request)
+
     # Falling back to the template's stored dates would silently pin the
     # event to an old, possibly past occurrence and reschedule reminders for
     # it, so the caller must name the one-time date explicitly.
@@ -972,14 +976,13 @@ def _apply_clear_recurrence(event: Event, request: UpdateEventRequest) -> tuple[
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="start_date and end_date are required when converting to a one-time event",
         )
-    start_date = request.start_date
-    end_date = request.end_date
-    _validate_date_range(start_date, end_date)
-    event.start_date = start_date
-    event.end_date = end_date
+    _validate_date_range(request.start_date, request.end_date)
+    event.start_date = request.start_date
+    event.end_date = request.end_date
     _clear_recurrence_fields(event)
-    start_date_changed = request.start_date != original_start
-    return False, was_recurring or start_date_changed
+    # Leaving a recurring series always invalidates the reminders it spawned,
+    # whether or not the caller also moved the date.
+    return False, True
 
 
 def _apply_recurrence_or_dates(event: Event, request: UpdateEventRequest) -> tuple[bool, bool]:
