@@ -605,19 +605,23 @@ def _png_bytes() -> bytes:
     return buffer.getvalue()
 
 
-def test_get_poem_image_bytes_passes_through_valid_non_webp():
+@pytest.mark.parametrize("suffix,stored", [("pic.png", _png_bytes()), ("pic.webp", _webp_bytes())])
+def test_get_poem_image_bytes_normalises_to_preview_jpeg(suffix, stored):
+    """Crawlers skip small or oddly shaped images, so every poem image is
+    served as a 1200x630 jpeg regardless of what was uploaded."""
     poem_id = "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
-    mock_poem = SimpleNamespace(image_key="images/poem_images/x/original/pic.png", title="A Poem")
-    png = _png_bytes()
+    mock_poem = SimpleNamespace(image_key=f"images/poem_images/x/original/{suffix}", title="A Poem")
 
     with patch("pecha_api.share.share_service.SessionLocal"), \
          patch("pecha_api.share.share_service.get_poem_by_id", return_value=mock_poem), \
          patch("pecha_api.share.share_service.get", return_value="bucket"), \
-         patch("pecha_api.share.share_service.download_bytes", return_value=png):
+         patch("pecha_api.share.share_service.download_bytes", return_value=stored):
         image_bytes, media_type = _get_poem_image_bytes_(poem_id)
 
-        assert image_bytes == png
-        assert media_type == "image/png"
+        assert media_type == "image/jpeg"
+        served = Image.open(io.BytesIO(image_bytes))
+        assert served.format == "JPEG"
+        assert served.size == (1200, 630)
 
 
 @pytest.mark.parametrize("suffix", ["pic.png", "pic.jpg", "pic.jpeg"])

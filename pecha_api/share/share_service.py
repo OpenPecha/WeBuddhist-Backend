@@ -4,7 +4,7 @@ import logging
 import re
 from pathlib import Path
 from uuid import UUID
-from PIL import Image
+from PIL import Image, ImageFilter, ImageOps
 from pecha_api.error_contants import ErrorConstants
 from starlette.responses import Response
 from .pecha_text_image_generator import generate_segment_image
@@ -42,6 +42,9 @@ IMAGE_MEDIA_TYPES = {
 PNG_FORMAT = "PNG"
 JPEG_FORMAT = "JPEG"
 JPEG_QUALITY = 85
+# The landscape size social crawlers expect of a link preview image.
+PREVIEW_SIZE = (1200, 630)
+PREVIEW_BLUR_RADIUS = 24
 DEFAULT_OG_TITLE = get("SITE_NAME")
 DEFAULT_OG_DESCRIPTION = get("SITE_NAME")
 PECHA_FRONTEND_ENDPOINT = "https://webuddhist.com/chapter"
@@ -78,25 +81,38 @@ def _get_poem_image_bytes_(poem_id: str) -> tuple[bytes, str] | None:
         logging.warning(f"Could not download poem image {image_key}: {error}")
         return None
 
-    media_type = IMAGE_MEDIA_TYPES.get(Path(image_key).suffix.lower(), WEBP_MEDIA_TYPE)
-
-    # Every stored object is decoded before being served: bytes PIL cannot open
-    # are not a usable image, so they fall through to the neutral fallback.
-    # Webp is additionally re-encoded, as social crawlers unfurl it unreliably.
+    # Crawlers expect a landscape preview near 1.91:1 and skip small or oddly
+    # shaped images, so every poem image is normalised onto that canvas. This
+    # also decodes the bytes: anything PIL cannot open falls through to the
+    # neutral fallback instead of being served as a broken image.
     try:
-        image = Image.open(io.BytesIO(image_bytes))
-        image.verify()
-        if media_type == WEBP_MEDIA_TYPE:
-            converted = io.BytesIO()
-            Image.open(io.BytesIO(image_bytes)).convert("RGB").save(
-                converted, format=JPEG_FORMAT, quality=JPEG_QUALITY
-            )
-            return converted.getvalue(), JPEG_MEDIA_TYPE
+        return _to_preview_jpeg_(image_bytes), JPEG_MEDIA_TYPE
     except (OSError, ValueError) as error:
         logging.warning(f"Poem image {image_key} is not a usable image: {error}")
         return None
 
-    return image_bytes, media_type
+
+def _to_preview_jpeg_(image_bytes: bytes) -> bytes:
+    """Fit the image onto a 1200x630 canvas, padded to keep its aspect ratio."""
+    image = Image.open(io.BytesIO(image_bytes))
+    image = image.convert("RGB")
+    image.thumbnail(PREVIEW_SIZE, Image.Resampling.LANCZOS)
+
+    # Fill the letterboxing with a blurred cover of the same image so the card
+    # reads as one picture rather than art on a coloured slab.
+    canvas = ImageOps.fit(
+        Image.open(io.BytesIO(image_bytes)).convert("RGB"),
+        PREVIEW_SIZE,
+        Image.Resampling.LANCZOS,
+    ).filter(ImageFilter.GaussianBlur(PREVIEW_BLUR_RADIUS))
+    canvas.paste(
+        image,
+        ((PREVIEW_SIZE[0] - image.width) // 2, (PREVIEW_SIZE[1] - image.height) // 2),
+    )
+
+    buffer = io.BytesIO()
+    canvas.save(buffer, format=JPEG_FORMAT, quality=JPEG_QUALITY)
+    return buffer.getvalue()
 
 
 def _image_response_(image_bytes: bytes, media_type: str) -> Response:
